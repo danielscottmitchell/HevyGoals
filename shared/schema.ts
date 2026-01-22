@@ -11,10 +11,10 @@ export * from "./models/auth";
 // Hevy Connections
 export const hevyConnections = pgTable("hevy_connections", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id), // Change varchar to text to match users.id
-  apiKey: text("api_key").notNull(), // In a real app, encrypt this!
+  userId: text("user_id").notNull().unique().references(() => users.id), // Add .unique() here
+  apiKey: text("api_key").notNull(), 
   lastSyncAt: timestamp("last_sync_at"),
-  status: text("status").default("ok"), // ok, auth_error, rate_limited, error
+  status: text("status").default("ok"), 
   targetWeightLb: numeric("target_weight_lb").default("3000000"),
   selectedYear: integer("selected_year").default(new Date().getFullYear()),
 });
