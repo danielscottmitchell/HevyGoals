@@ -44,13 +44,19 @@ export async function registerRoutes(
     const userId = (req.user as any).claims.sub;
     
     try {
-        const input = api.settings.update.input.parse(req.body);
+        const bodySchema = api.settings.update.input.extend({
+          targetWeightLb: z.coerce.string(),
+          selectedYear: z.coerce.number(),
+        });
+        const input = bodySchema.parse(req.body);
         const updated = await storage.updateHevyConnection(userId, input);
         res.json(updated);
     } catch (err) {
         if (err instanceof z.ZodError) {
+            console.error("Validation error:", err.errors);
             res.status(400).json(err.issues);
         } else {
+            console.error("Settings update error:", err);
             res.status(500).json({ message: "Internal Error" });
         }
     }

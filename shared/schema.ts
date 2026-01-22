@@ -87,7 +87,12 @@ export const prEventsRelations = relations(prEvents, ({ one }) => ({
 }));
 
 // === BASE SCHEMAS ===
-export const insertHevyConnectionSchema = createInsertSchema(hevyConnections).omit({ id: true, lastSyncAt: true, status: true });
+export const insertHevyConnectionSchema = createInsertSchema(hevyConnections).omit({ 
+  id: true, 
+  userId: true, 
+  lastSyncAt: true, 
+  status: true 
+});
 export const insertWorkoutSchema = createInsertSchema(workouts);
 export const insertDailyAggregateSchema = createInsertSchema(dailyAggregates).omit({ id: true });
 export const insertPrEventSchema = createInsertSchema(prEvents).omit({ id: true, createdAt: true });
