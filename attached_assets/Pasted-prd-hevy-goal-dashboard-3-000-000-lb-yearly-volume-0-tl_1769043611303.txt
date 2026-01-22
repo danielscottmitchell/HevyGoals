@@ -1,0 +1,527 @@
+prd - hevy goal dashboard (3,000,000 lb yearly volume)
+0) tldr
+
+build a web dashboard that connects to the hevy api, computes total weight lifted for a chosen year, shows whether the user is ahead or behind pace for a 3,000,000 lb goal, and celebrates personal records (prs) along the way with lightweight “achievement” moments.
+
+1) goals and non-goals
+goals
+
+accurately compute “total pounds lifted” for a selected year from hevy workout data (sets with weight_kg and reps)
+
+show progress to goal (3,000,000 lb) as a progress bar
+
+show pacing (ahead/behind) vs linear target, plus days remaining in the year
+
+show daily history as a github-style contribution heatmap (intensity = daily volume), with a single badge overlay on days with any pr
+
+track and display prs (no streaks)
+
+non-goals (explicitly out of scope)
+
+workout logging, editing workouts, training plan generation
+
+social features (friends, feeds), notifications (phase 3 optional)
+
+calorie/macros/bodyweight tracking
+
+2) user stories (must-have)
+onboarding
+
+as a user, i can connect my hevy account so the dashboard can read my workouts
+
+v1 approach: user pastes a hevy api key generated in hevy developer settings
+
+note: hevy api access is tied to pro in practice, and docs mention pro for api and webhooks
+
+api header name: use api-key (not x-api-key)
+
+core dashboard
+
+as a user, i see:
+
+total lbs lifted year-to-date
+
+percent complete toward 3,000,000
+
+days remaining in the selected year
+
+ahead/behind pace in lbs (and in %)
+
+projected year-end total if current pace continues
+
+as a user, i can change:
+
+goal value (default 3,000,000 lb)
+
+year (default current year)
+
+unit display (lb default, kg optional)
+
+daily history + prs
+
+as a user, i see a heatmap of daily lifted volume for the selected year
+
+as a user, i see a single “pr badge” marker on any day where a pr happened
+
+as a user, i can click a day to see:
+
+day total volume
+
+workouts completed that day
+
+prs earned that day (if any), with details
+
+3) hevy api - required endpoints + fields
+base url
+
+base server url: https://hevy.com
+
+required reads
+
+list workouts (paginated)
+
+GET /api/v1/workouts?page={int>=1}&pageSize={int<=10}
+
+returns workouts[], plus page, page_count
+
+(optional but helpful) exercise history per template
+
+GET /v1/exercise_history/{exerciseTemplateId}?start_date=...&end_date=...
+
+(phase 3 optional) workout finished webhook
+
+hevy can send a webhook on workout completion; webhook payload includes workout id, and hevy expects an http 200 within ~5 seconds or it retries
+
+workout object fields we rely on
+
+workout:
+
+id, title, start_time, end_time, created_at, updated_at
+
+exercises[] with exercise_template_id and sets[]
+
+set fields:
+
+weight_kg (nullable), reps (nullable), type (warmup/normal/failure/dropset), plus cardio fields we ignore for lifting volume
+
+4) calculation spec (this is the heart of correctness)
+4.1 definitions
+
+conversion constant: LB_PER_KG = 2.20462262185
+
+“lifting set” = set where weight_kg != null and reps != null and reps > 0
+
+“set volume (lb)” = weight_kg * LB_PER_KG * reps
+
+“workout volume (lb)” = sum of set volume across all lifting sets in that workout
+
+“day” = user-local date derived from workout start_time (default timezone america-new_york)
+
+4.2 year boundaries
+
+selected year y:
+
+start = y-01-01 00:00:00 local
+
+end = y-12-31 23:59:59 local
+
+include a workout in year y if its start_time in user-local time falls within [start, end]
+
+4.3 pace math
+
+for year y:
+
+goal_lb = default 3,000,000
+
+total_days_in_year = 365 or 366
+
+today_local = now in user timezone
+
+days_elapsed:
+
+if y is current year: count days from jan 1 to today inclusive
+
+else: if y in past: = total_days_in_year
+
+else (future year): = 0 (show “not started” state)
+
+days_remaining:
+
+if y is current year: total_days_in_year - days_elapsed
+
+if y in past: 0
+
+if y in future: total_days_in_year
+
+volume_to_date_lb = sum workout volume for workouts in year y
+
+target_volume_to_date_lb:
+
+linear pace line = goal_lb * (days_elapsed / total_days_in_year)
+
+ahead_behind_lb = volume_to_date_lb - target_volume_to_date_lb
+
+required_per_day_lb (if days_remaining > 0) = (goal_lb - volume_to_date_lb) / days_remaining
+
+actual_per_day_lb (if days_elapsed > 0) = volume_to_date_lb / days_elapsed
+
+projected_year_end_lb (if days_elapsed > 0) = actual_per_day_lb * total_days_in_year
+
+4.4 prs (no streaks)
+
+single badge icon, multiple pr “reasons” behind it. store each pr event with a type and context.
+
+pr types tracked
+
+“heaviest weight for an exercise”
+
+for each exercise_template_id, consider all lifting sets in the selected year
+
+metric = max weight_kg (convert for display)
+
+trigger: if today’s max weight for that exercise exceeds prior year-to-date max
+
+“most volume for an exercise (in a single workout)”
+
+for each exercise_template_id and workout_id:
+
+exercise_workout_volume_lb = sum set volume for that exercise within that workout
+
+trigger: if that value exceeds prior year-to-date max for that exercise
+
+“heaviest day (total volume)”
+
+daily_volume_lb = sum workout volume for all workouts on that day
+
+trigger: if that exceeds prior year-to-date max daily volume
+
+pr event object (store)
+
+id (uuid)
+
+user_id
+
+occurred_on_date (local yyyy-mm-dd)
+
+workout_id (nullable - daily pr might link to multiple workouts)
+
+exercise_template_id (nullable)
+
+type enum: exercise_max_weight | exercise_max_workout_volume | daily_total_volume
+
+value_lb (numeric)
+
+previous_best_lb (numeric nullable)
+
+delta_lb = value - previous_best
+
+5) ux spec (screens + components)
+5.1 information architecture
+
+routes
+
+/ - dashboard
+
+/settings - connect hevy, set goal/year/unit/timezone, data refresh
+
+/day/yyyy-mm-dd - day detail (optional - can be modal from heatmap)
+
+5.2 dashboard layout (top to bottom)
+
+header row
+
+left: title “3,000,000 lb - {year}”
+
+right: settings link, last sync timestamp, “refresh” button
+
+kpi cards row (exact cards)
+
+card 1: total lifted (lb) - formatted with commas
+
+card 2: ahead/behind pace (lb) - sign + color by sign
+
+card 3: days remaining - integer
+
+card 4: required per day (lb) - show “n/a” if days_remaining=0
+
+card 5: sessions completed - count workouts in year
+
+card 6: days lifted - unique days with >=1 workout
+
+main chart
+
+chart type: 2-line cumulative line chart
+
+line a: cumulative actual volume by day
+
+line b: cumulative target pace line by day (straight line)
+
+hover tooltip shows:
+
+date
+
+actual cumulative
+
+target cumulative
+
+delta
+
+progress bar (full width)
+
+bar shows volume_to_date_lb / goal_lb
+
+markers at 25/50/75/100%
+
+label: “{x}% - {remaining_lb} lb remaining”
+
+if volume_to_date_lb >= goal_lb, show “goal hit” state
+
+daily heatmap
+
+grid: 7 rows (days of week) x 53 columns (weeks), like github
+
+cell color intensity: daily_volume_lb bucketed into 5 bins
+
+bin thresholds computed from user’s own distribution (quantiles) so it looks good for any user
+
+overlay: small badge dot on any day where pr_count_that_day > 0
+
+interactions:
+
+hover tooltip: date, daily volume, workouts count, pr count
+
+click: opens day detail modal with workouts list + prs list
+
+recent prs feed (right column or below heatmap)
+
+list last 10 pr events (most recent first)
+
+each row: date, pr type label, value, delta vs previous best
+
+6) data + storage spec (so the agent builds it right)
+6.1 suggested architecture (can be swapped, but keep interfaces)
+
+frontend: next.js + typescript
+
+backend: next.js route handlers (or separate api)
+
+db: postgres (or sqlite for poc), using prisma
+
+caching strategy:
+
+store normalized workouts + computed daily aggregates so dashboard loads fast
+
+6.2 database tables (minimum viable)
+
+users
+
+id uuid pk
+
+email (optional if multi-user auth)
+
+created_at
+
+hevy_connections
+
+user_id fk
+
+hevy_api_key_encrypted (string) - encrypt at rest
+
+last_sync_at (timestamp)
+
+status enum: ok | auth_error | rate_limited | error
+
+workouts
+
+id (hevy workout id) pk
+
+user_id fk
+
+start_time_utc timestamp
+
+start_date_local date (derived, indexed)
+
+raw_json jsonb (store full workout payload for debug)
+
+workout_volume_lb numeric
+
+daily_aggregates
+
+user_id fk
+
+year int
+
+date_local date
+
+daily_volume_lb numeric
+
+workouts_count int
+
+prs_count int
+
+pk: (user_id, date_local)
+
+pr_events
+
+fields as defined in section 4.4
+
+6.3 sync algorithm
+
+poc/beta sync (simple, deterministic)
+
+on “refresh”:
+
+fetch all workouts pages from /api/v1/workouts with pageSize=10 until page > page_count
+
+upsert workouts by id
+
+recompute:
+
+workout_volume_lb for each workout from raw json
+
+daily_aggregates for selected year(s)
+
+pr_events for selected year
+
+production sync (fast)
+
+option a (preferred): webhook-driven
+
+user configures hevy webhook to call our endpoint (phase 3)
+
+on webhook: fetch that workout id (if endpoint exists in docs for single workout; if not, refetch pages and reconcile)
+
+update aggregates + prs for that day only
+
+option b: periodic polling
+
+run cron every 6 hours: refresh newest workouts pages only (until the oldest fetched workout is older than last_sync_at)
+
+(i am not fully certain which single-workout read endpoint hevy exposes publicly in the current docs, so the safe implementation is always “list pages + reconcile,” and later optimize once confirmed.)
+
+7) phased delivery plan (so your agent does not go off the rails)
+phase 1 - proof of concept (single user, correct math)
+
+deliverables
+
+settings page
+
+field: paste hevy api key
+
+button: “test connection” (calls /api/v1/workouts?page=1&pageSize=1)
+
+dashboard page
+
+total lifted (lb)
+
+days remaining
+
+ahead/behind pace
+
+progress bar
+
+backend sync
+
+fetch all workouts (paginated)
+
+compute workout_volume_lb and yearly totals
+
+acceptance criteria
+
+totals match a spot-check from hevy exports for at least 3 workouts (manual validation step)
+
+refresh completes successfully for an account with >100 workouts (must paginate correctly)
+
+check-in demo script
+
+paste key - test connection ok
+
+hit refresh - see total update
+
+change year - totals change
+
+phase 2 - beta testable (real dashboard + prs)
+
+deliverables
+
+add:
+
+cumulative chart (actual vs target)
+
+daily heatmap with pr badge overlay
+
+day detail modal
+
+pr event generation (3 pr types)
+
+recent prs feed
+
+kpi cards exactly as specified
+
+acceptance criteria
+
+clicking a heatmap day shows correct workouts and totals
+
+pr triggers behave correctly on synthetic test data (unit tests with fixed fixtures)
+
+check-in demo script
+
+show a pr day - click - see why it was a pr
+
+show ahead/behind changes as you change goal value
+
+phase 3 - production-ready (multi-user + reliability)
+
+deliverables
+
+multi-user auth (email magic link or oauth provider)
+
+encrypted api-key storage + key rotation (user can replace key)
+
+background sync (cron) and optional webhook ingest
+
+observability:
+
+error logs per user
+
+sync status UI (last sync, last error)
+
+perf:
+
+dashboard loads from aggregates (no live hevy calls on page load)
+
+security:
+
+never log api keys
+
+csrf on webhook endpoint
+
+rate limit refresh per user
+
+acceptance criteria
+
+a new user can sign up, connect, and see a dashboard within 2 minutes
+
+sync errors (401, 429, timeout) show actionable status without breaking the ui
+
+8) edge cases (explicit handling)
+
+workouts with null weight_kg or null reps - ignore those sets in lifting volume
+
+workouts spanning midnight - attribute to start_time local date
+
+multiple workouts in a day - sum into one day cell
+
+user selects past year - days_remaining=0, show final totals and “year complete” state
+
+api key invalid/expired - show status and block refresh; prompt user to regenerate key
+
+9) implementation notes for the agent (hard constraints)
+
+do not invent additional hevy fields beyond those shown in the workout and set schemas cited above
+
+keep prs deterministic - recompute from source workouts, do not do “best effort” guesses
+
+no streak features
+
+default units shown: pounds (even though source is kg)
