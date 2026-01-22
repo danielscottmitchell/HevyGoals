@@ -1,0 +1,206 @@
+import { useSettings, useUpdateSettings, useRefreshData } from "@/hooks/use-hevy";
+import { Shell } from "@/components/layout/Shell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertHevyConnectionSchema } from "@shared/schema";
+import { z } from "zod";
+import { useEffect } from "react";
+import { Loader2, Save, Key, Target, RefreshCw } from "lucide-react";
+
+// Schema for the form
+const formSchema = insertHevyConnectionSchema.pick({
+  apiKey: true,
+  targetWeightLb: true,
+  selectedYear: true,
+}).extend({
+  targetWeightLb: z.coerce.number().min(1000, "Goal must be at least 1,000 lbs"),
+  selectedYear: z.coerce.number().min(2020).max(2030),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
+export default function Settings() {
+  const { data: settings, isLoading } = useSettings();
+  const updateMutation = useUpdateSettings();
+  const refreshMutation = useRefreshData();
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      apiKey: "",
+      targetWeightLb: 3000000,
+      selectedYear: new Date().getFullYear(),
+    },
+  });
+
+  // Populate form when data loads
+  useEffect(() => {
+    if (settings) {
+      form.reset({
+        apiKey: settings.apiKey,
+        targetWeightLb: Number(settings.targetWeightLb),
+        selectedYear: settings.selectedYear || new Date().getFullYear(),
+      });
+    }
+  }, [settings, form]);
+
+  const onSubmit = (data: FormValues) => {
+    updateMutation.mutate(data);
+  };
+
+  const handleRefresh = () => {
+    refreshMutation.mutate();
+  };
+
+  if (isLoading) {
+    return (
+      <Shell>
+        <div className="h-[60vh] flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell>
+      <div className="max-w-2xl mx-auto space-y-8">
+        <div>
+          <h1 className="text-3xl font-display font-bold">Settings</h1>
+          <p className="text-muted-foreground mt-2">Configure your connection to Hevy and set your volume goals.</p>
+        </div>
+
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle>Configuration</CardTitle>
+            <CardDescription>
+              Manage your API keys and goal parameters.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                
+                <FormField
+                  control={form.control}
+                  name="apiKey"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hevy API Key</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Key className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input placeholder="your_api_key_here" className="pl-9" {...field} />
+                        </div>
+                      </FormControl>
+                      <FormDescription>
+                        Found in Hevy App Settings {'>'} Developer. Kept secure and encrypted.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="targetWeightLb"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Volume Goal (lbs)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Target className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input type="number" {...field} className="pl-9" />
+                          </div>
+                        </FormControl>
+                        <FormDescription>
+                          Default is 3,000,000 lbs per year.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="selectedYear"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Target Year</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          The year to track progress for.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="flex justify-end pt-4">
+                  <Button 
+                    type="submit" 
+                    size="lg" 
+                    disabled={updateMutation.isPending}
+                    className="w-full sm:w-auto min-w-[150px]"
+                  >
+                    {updateMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+
+        {settings && (
+          <Card className="border-secondary bg-secondary/20">
+            <CardHeader>
+              <CardTitle>Manual Sync</CardTitle>
+              <CardDescription>
+                Force a synchronization with Hevy. This happens automatically, but you can trigger it manually here.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter>
+              <Button 
+                variant="outline" 
+                onClick={handleRefresh} 
+                disabled={refreshMutation.isPending}
+                className="w-full sm:w-auto"
+              >
+                {refreshMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Sync Now
+                  </>
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
+      </div>
+    </Shell>
+  );
+}
