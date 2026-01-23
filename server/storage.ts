@@ -21,7 +21,7 @@ export interface IStorage {
   updateHevyConnection(userId: string, data: InsertHevyConnection): Promise<HevyConnection>;
   
   // Workouts
-  upsertWorkouts(userId: string, workoutsData: any[]): Promise<void>;
+  upsertWorkouts(userId: string, workoutsData: any[], bodyweightLb?: number): Promise<void>;
   getWorkouts(userId: string, year: number): Promise<Workout[]>;
   
   // Dashboard Aggregation
@@ -55,12 +55,8 @@ export class DatabaseStorage implements IStorage {
     return connection;
   }
 
-  async upsertWorkouts(userId: string, workoutsData: any[]): Promise<void> {
+  async upsertWorkouts(userId: string, workoutsData: any[], bodyweightLb: number = 180): Promise<void> {
     if (workoutsData.length === 0) return;
-    
-    // In a real implementation, we would batch this properly
-    // For now, naive loop is safer for complex upserts logic, or simpler bulk insert
-    // Let's do bulk insert with on conflict ignore/update
     
     // Transform Hevy workout to our schema
     const rows = workoutsData.map(w => ({
@@ -69,7 +65,7 @@ export class DatabaseStorage implements IStorage {
       title: w.title,
       startTime: new Date(w.start_time),
       endTime: w.end_time ? new Date(w.end_time) : null,
-      volumeLb: calculateVolumeLb(w).toString(),
+      volumeLb: calculateVolumeLb(w, bodyweightLb).toString(),
       rawJson: w,
     }));
 
@@ -319,12 +315,18 @@ export class DatabaseStorage implements IStorage {
 export const storage = new DatabaseStorage();
 
 // Helpers
-function calculateVolumeLb(workout: any): number {
+function calculateVolumeLb(workout: any, bodyweightLb: number = 180): number {
     let vol = 0;
     for (const ex of workout.exercises) {
         for (const set of ex.sets) {
-            if (set.weight_kg && set.reps) {
-                vol += (set.weight_kg * 2.20462) * set.reps;
+            if (set.reps && set.reps > 0) {
+                if (set.weight_kg && set.weight_kg > 0) {
+                    // Weighted exercise
+                    vol += (set.weight_kg * 2.20462) * set.reps;
+                } else {
+                    // Bodyweight exercise (weight_kg is null or 0)
+                    vol += bodyweightLb * set.reps;
+                }
             }
         }
     }

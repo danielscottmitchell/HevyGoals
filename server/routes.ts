@@ -47,6 +47,7 @@ export async function registerRoutes(
         const bodySchema = api.settings.update.input.extend({
           targetWeightLb: z.coerce.string(),
           selectedYear: z.coerce.number(),
+          bodyweightLb: z.coerce.string(),
         });
         const input = bodySchema.parse(req.body);
         const updated = await storage.updateHevyConnection(userId, input);
@@ -93,8 +94,9 @@ export async function registerRoutes(
             if (page > 20) break; // Limit to 200 workouts for safety in POC
         }
 
-        // 2. Save Workouts
-        await storage.upsertWorkouts(userId, allWorkouts);
+        // 2. Save Workouts with user's bodyweight
+        const bodyweightLb = connection.bodyweightLb ? parseFloat(connection.bodyweightLb) : 180;
+        await storage.upsertWorkouts(userId, allWorkouts, bodyweightLb);
 
         // 3. Recalculate Aggregates
         const year = connection.selectedYear || new Date().getFullYear();

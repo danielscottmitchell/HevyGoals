@@ -10,16 +10,18 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertHevyConnectionSchema } from "@shared/schema";
 import { z } from "zod";
 import { useEffect } from "react";
-import { Loader2, Save, Key, Target, RefreshCw } from "lucide-react";
+import { Loader2, Save, Key, Target, RefreshCw, Scale } from "lucide-react";
 
 // Schema for the form
 const formSchema = insertHevyConnectionSchema.pick({
   apiKey: true,
   targetWeightLb: true,
   selectedYear: true,
+  bodyweightLb: true,
 }).extend({
   targetWeightLb: z.coerce.number().min(1000, "Goal must be at least 1,000 lbs"),
   selectedYear: z.coerce.number().min(2020).max(2030),
+  bodyweightLb: z.coerce.number().min(50, "Bodyweight must be at least 50 lbs").max(500),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -35,6 +37,7 @@ export default function Settings() {
       apiKey: "",
       targetWeightLb: 3000000,
       selectedYear: new Date().getFullYear(),
+      bodyweightLb: 180,
     },
   });
 
@@ -45,6 +48,7 @@ export default function Settings() {
         apiKey: settings.apiKey,
         targetWeightLb: Number(settings.targetWeightLb),
         selectedYear: settings.selectedYear || new Date().getFullYear(),
+        bodyweightLb: Number(settings.bodyweightLb) || 180,
       });
     }
   }, [settings, form]);
@@ -106,7 +110,7 @@ export default function Settings() {
                   )}
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <FormField
                     control={form.control}
                     name="targetWeightLb"
@@ -121,6 +125,26 @@ export default function Settings() {
                         </FormControl>
                         <FormDescription>
                           Default is 3,000,000 lbs per year.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="bodyweightLb"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Your Bodyweight (lbs)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Scale className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input type="number" {...field} className="pl-9" data-testid="input-bodyweight" />
+                          </div>
+                        </FormControl>
+                        <FormDescription>
+                          Used for bodyweight exercises.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>

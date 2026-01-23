@@ -11,12 +11,13 @@ export * from "./models/auth";
 // Hevy Connections
 export const hevyConnections = pgTable("hevy_connections", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().unique().references(() => users.id), // Add .unique() here
+  userId: text("user_id").notNull().unique().references(() => users.id),
   apiKey: text("api_key").notNull(), 
   lastSyncAt: timestamp("last_sync_at"),
   status: text("status").default("ok"), 
   targetWeightLb: numeric("target_weight_lb").default("3000000"),
   selectedYear: integer("selected_year").default(new Date().getFullYear()),
+  bodyweightLb: numeric("bodyweight_lb").default("180"), // User's bodyweight for bodyweight exercises
 });
 
 // Workouts
