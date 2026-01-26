@@ -530,17 +530,21 @@ export class DatabaseStorage implements IStorage {
         ))
         .orderBy(asc(dailyAggregates.date));
 
-    // Fill gaps or just return aggregates?
-    // Let's return sparse data for now, recharts handles it ok usually, or we fill gaps in frontend
-    // Better to return cumulative points
-    
     const points: ChartDataPoint[] = [];
     let cumulative = 0;
     const targetPerDay = goalLb / 365;
-
-    // Use a map to fill every day? For a nice line chart we probably want sparse but correct cumulative
-    // Let's just map the aggregates we have.
     
+    // Add starting point (Jan 1)
+    const yearStart = `${year}-01-01`;
+    points.push({
+        date: yearStart,
+        actualVolume: 0,
+        targetVolume: targetPerDay,
+        cumulativeActual: 0,
+        cumulativeTarget: 0
+    });
+    
+    // Add actual workout data points
     for (const agg of aggregates) {
         cumulative += parseFloat(agg.volumeLb);
         const dayIndex = getDayOfYear(new Date(agg.date));
@@ -551,6 +555,25 @@ export class DatabaseStorage implements IStorage {
             targetVolume: targetPerDay,
             cumulativeActual: cumulative,
             cumulativeTarget: targetPerDay * dayIndex
+        });
+    }
+    
+    // Add current day endpoint for target line (or year end if viewing past year)
+    const now = new Date();
+    const isCurrentYear = now.getFullYear() === year;
+    const endDate = isCurrentYear ? now : new Date(year, 11, 31);
+    const endDateStr = endDate.toISOString().split('T')[0];
+    const endDayIndex = getDayOfYear(endDate);
+    
+    // Only add if we don't already have this date
+    const lastPoint = points[points.length - 1];
+    if (lastPoint && lastPoint.date !== endDateStr) {
+        points.push({
+            date: endDateStr,
+            actualVolume: 0,
+            targetVolume: targetPerDay,
+            cumulativeActual: cumulative,
+            cumulativeTarget: targetPerDay * endDayIndex
         });
     }
 
