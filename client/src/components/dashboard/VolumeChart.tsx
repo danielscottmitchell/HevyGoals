@@ -25,28 +25,42 @@ export function VolumeChart({ data }: VolumeChartProps) {
   const goalPerDay = data[1]?.targetVolume || 0;
   const daysSinceJan1 = Math.floor((todayTime - jan1) / (1000 * 60 * 60 * 24));
   const todayTarget = goalPerDay * daysSinceJan1;
+  const lastActual = data[data.length - 1]?.cumulativeActual || 0;
 
-  const chartData = data.map((point) => ({
-    ...point,
-    timestamp: parseISO(point.date).getTime(),
-    targetLine: null as number | null
-  }));
+  const chartData: Array<{
+    date: string;
+    timestamp: number;
+    cumulativeActual: number | null;
+    targetLine: number | null;
+    aheadBehind?: number;
+  }> = [];
 
-  if (chartData.length > 0) {
-    chartData[0].targetLine = 0;
+  chartData.push({
+    date: format(new Date(jan1), 'yyyy-MM-dd'),
+    timestamp: jan1,
+    cumulativeActual: 0,
+    targetLine: 0
+  });
+
+  for (const point of data.slice(1)) {
+    chartData.push({
+      date: point.date,
+      timestamp: parseISO(point.date).getTime(),
+      cumulativeActual: point.cumulativeActual,
+      targetLine: null,
+      aheadBehind: point.aheadBehind
+    });
   }
-  
+
   chartData.push({
     date: format(today, 'yyyy-MM-dd'),
-    actualVolume: 0,
-    targetVolume: goalPerDay,
-    cumulativeActual: chartData[chartData.length - 1]?.cumulativeActual || 0,
-    cumulativeTarget: todayTarget,
-    targetForDay: todayTarget,
-    aheadBehind: (chartData[chartData.length - 1]?.cumulativeActual || 0) - todayTarget,
     timestamp: todayTime,
-    targetLine: todayTarget
+    cumulativeActual: lastActual,
+    targetLine: todayTarget,
+    aheadBehind: lastActual - todayTarget
   });
+
+  chartData.sort((a, b) => a.timestamp - b.timestamp);
 
   return (
     <Card className="glass-card col-span-1 lg:col-span-2 h-full flex flex-col">
@@ -67,8 +81,8 @@ export function VolumeChart({ data }: VolumeChartProps) {
             <XAxis 
               dataKey="timestamp"
               type="number"
+              domain={['dataMin', 'dataMax']}
               scale="time"
-              domain={[jan1, todayTime]}
               stroke="hsl(var(--muted-foreground))" 
               fontSize={12}
               tickFormatter={(value) => format(new Date(value), "MMM d")}
@@ -84,6 +98,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
               }}
               tickMargin={10}
               tickCount={6}
+              domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.1)]}
             />
             <Tooltip 
               content={({ active, payload }) => {
@@ -106,7 +121,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
                       {format(parseISO(dataPoint.date), "MMM d, yyyy")}
                     </div>
                     <div style={{ color: "hsl(var(--primary))", fontWeight: 600 }}>
-                      {new Intl.NumberFormat('en-US').format(Math.round(dataPoint.cumulativeActual))} lbs
+                      {new Intl.NumberFormat('en-US').format(Math.round(dataPoint.cumulativeActual || 0))} lbs
                     </div>
                     {hasAheadBehind && (
                       <div style={{ 
@@ -142,6 +157,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
               fillOpacity={1} 
               fill="url(#colorActual)" 
               strokeWidth={3}
+              connectNulls
             />
           </ComposedChart>
         </ResponsiveContainer>
