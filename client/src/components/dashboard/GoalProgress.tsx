@@ -43,14 +43,14 @@ export function GoalProgress({ current, target, percentage, daysRemaining, requi
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mt-10">
-        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm flex items-center justify-between">
-          <span className="opacity-80">Remaining to Goal</span>
-          <span className="font-bold font-mono">{(target - current).toLocaleString()} lbs</span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-10">
+        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm">
+          <div className="opacity-80 text-xs mb-1">Remaining to Goal</div>
+          <div className="font-bold font-mono">{(target - current).toLocaleString()} lbs</div>
         </div>
-        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm flex items-center justify-between">
-          <span className="opacity-80">Required Daily Avg</span>
-          <span className="font-bold font-mono">~{Math.round(requiredPerDay).toLocaleString()} lbs/day</span>
+        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm">
+          <div className="opacity-80 text-xs mb-1">Required Daily Avg</div>
+          <div className="font-bold font-mono">~{Math.round(requiredPerDay).toLocaleString()} lbs/day</div>
         </div>
       </div>
     </div>

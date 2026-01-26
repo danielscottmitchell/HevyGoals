@@ -64,15 +64,17 @@ export default function Dashboard() {
             <h1 className="text-4xl font-display font-bold text-foreground tracking-tight">
               {(stats.goalLb / 1000000).toFixed(1)}M lbs Goal
             </h1>
-            <p className="text-muted-foreground mt-1 flex items-center gap-2">
-              <CalendarDays className="w-4 h-4" />
-              {new Date().getFullYear()} Progress Dashboard
+            <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
+              <span className="flex items-center gap-2">
+                <CalendarDays className="w-4 h-4" />
+                {new Date().getFullYear()} Progress Dashboard
+              </span>
               {stats.lastSyncAt && (
-                <span className="text-xs ml-2 py-0.5 px-2 rounded-full bg-secondary border border-white/5">
+                <span className="text-xs py-0.5 px-2 rounded-full bg-secondary border border-white/5 whitespace-nowrap">
                   Synced: {new Date(stats.lastSyncAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                 </span>
               )}
-            </p>
+            </div>
           </div>
           <div className="flex gap-3">
             <Button 
