@@ -259,6 +259,15 @@ export async function registerRoutes(
     res.json(prs);
   });
 
+  // Top Workouts Route
+  app.get(api.topWorkouts.list.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const userId = (req.user as any).claims.sub;
+    
+    const topWorkouts = await storage.getTopWorkouts(userId, 10);
+    res.json(topWorkouts);
+  });
+
   // Dashboard Routes
   app.get(api.dashboard.get.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);

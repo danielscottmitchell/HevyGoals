@@ -86,6 +86,20 @@ export const api = {
       },
     },
   },
+  topWorkouts: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/top-workouts',
+      responses: {
+        200: z.array(z.object({
+          id: z.string(),
+          title: z.string().nullable(),
+          date: z.string(),
+          volumeLb: z.number(),
+        })),
+      },
+    },
+  },
   dashboard: {
     get: {
       method: 'GET' as const,

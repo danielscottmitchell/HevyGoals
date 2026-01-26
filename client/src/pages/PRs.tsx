@@ -1,14 +1,17 @@
-import { useExercisePrs } from "@/hooks/use-hevy";
+import { useExercisePrs, useTopWorkouts } from "@/hooks/use-hevy";
 import { Shell } from "@/components/layout/Shell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Trophy, Dumbbell, TrendingUp, Flame } from "lucide-react";
+import { Loader2, Trophy, Dumbbell, TrendingUp, Flame, Crown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 
 export default function PRs() {
-  const { data: prs, isLoading } = useExercisePrs();
+  const { data: prs, isLoading: prsLoading } = useExercisePrs();
+  const { data: topWorkouts, isLoading: workoutsLoading } = useTopWorkouts();
   const [searchTerm, setSearchTerm] = useState("");
+
+  const isLoading = prsLoading || workoutsLoading;
 
   if (isLoading) {
     return (
@@ -24,17 +27,21 @@ export default function PRs() {
     pr.exerciseName.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
-  const formatWeight = (weight: string | null) => {
-    if (!weight) return "-";
-    const num = parseFloat(weight);
-    return num >= 1000 ? `${(num / 1000).toFixed(1)}k` : num.toFixed(0);
+  const formatWeight = (weight: string | number | null) => {
+    if (weight === null || weight === undefined) return "-";
+    const num = typeof weight === 'string' ? parseFloat(weight) : weight;
+    if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
+    return num.toFixed(0);
   };
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "-";
-    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { 
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { 
       month: 'short', 
-      day: 'numeric' 
+      day: 'numeric',
+      year: 'numeric'
     });
   };
 
@@ -58,9 +65,61 @@ export default function PRs() {
               Personal Records
             </h1>
             <p className="text-muted-foreground mt-2">
-              Your all-time best performances for each exercise.
+              Your all-time best performances.
             </p>
           </div>
+        </div>
+
+        {/* Top Session Volume Section */}
+        {topWorkouts && topWorkouts.length > 0 && (
+          <Card className="glass-card" data-testid="card-top-workouts">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <Crown className="h-5 w-5 text-yellow-500" />
+                <CardTitle className="text-lg">Top Session Volume</CardTitle>
+              </div>
+              <CardDescription>Your highest total volume single workouts</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {topWorkouts.slice(0, 5).map((workout, index) => (
+                  <div 
+                    key={workout.id} 
+                    className="flex items-center justify-between p-3 rounded-md bg-muted/50"
+                    data-testid={`top-workout-${index}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg font-bold text-muted-foreground w-6">
+                        {index + 1}.
+                      </span>
+                      <div>
+                        <p className="font-medium" data-testid={`top-workout-title-${index}`}>
+                          {workout.title || "Workout"}
+                        </p>
+                        <p className="text-xs text-muted-foreground" data-testid={`top-workout-date-${index}`}>
+                          {formatDate(workout.date)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-primary" data-testid={`top-workout-volume-${index}`}>
+                        {formatWeight(workout.volumeLb)}
+                        <span className="text-xs text-muted-foreground ml-0.5">lb</span>
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Exercise PRs Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h2 className="text-xl font-display font-semibold flex items-center gap-2">
+            <Dumbbell className="h-5 w-5" />
+            Exercise PRs
+          </h2>
           <div className="w-full sm:w-72">
             <Input
               placeholder="Search exercises..."

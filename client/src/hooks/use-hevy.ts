@@ -190,6 +190,17 @@ export function useExercisePrs() {
   });
 }
 
+export function useTopWorkouts() {
+  return useQuery({
+    queryKey: [api.topWorkouts.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.topWorkouts.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch top workouts");
+      return api.topWorkouts.list.responses[200].parse(await res.json());
+    },
+  });
+}
+
 // ============================================
 // DASHBOARD HOOKS
 // ============================================
