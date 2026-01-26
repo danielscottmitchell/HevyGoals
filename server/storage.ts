@@ -623,16 +623,20 @@ export class DatabaseStorage implements IStorage {
         cumulativeTarget: 0
     });
     
-    // Add actual workout data points (no target values - those will only be at start/end)
+    // Add actual workout data points
     for (const agg of aggregates) {
         cumulative += parseFloat(agg.volumeLb);
+        const dayIndex = getDayOfYear(new Date(agg.date));
+        const targetForDay = targetPerDay * dayIndex;
         
         points.push({
             date: agg.date,
             actualVolume: parseFloat(agg.volumeLb),
             targetVolume: targetPerDay,
             cumulativeActual: cumulative,
-            cumulativeTarget: undefined as any // Will be interpolated by straight line
+            cumulativeTarget: null as any, // null for chart line (connectNulls skips these)
+            targetForDay: targetForDay, // Store for tooltip calculation
+            aheadBehind: cumulative - targetForDay // Positive = ahead, negative = behind
         });
     }
     

@@ -9,6 +9,8 @@ interface VolumeChartProps {
     targetVolume: number;
     cumulativeActual: number;
     cumulativeTarget: number;
+    targetForDay?: number;
+    aheadBehind?: number;
   }>;
 }
 
@@ -63,11 +65,40 @@ export function VolumeChart({ data }: VolumeChartProps) {
               }}
               labelStyle={{ color: "hsl(var(--muted-foreground))" }}
               itemStyle={{ color: "hsl(var(--foreground))" }}
-              formatter={(value: number) => [
-                new Intl.NumberFormat('en-US').format(value) + ' lbs', 
-                undefined
-              ]}
-              labelFormatter={(label) => format(parseISO(label), "MMM d, yyyy")}
+              content={({ active, payload, label }) => {
+                if (!active || !payload || payload.length === 0) return null;
+                const dataPoint = payload[0]?.payload;
+                if (!dataPoint) return null;
+                
+                const aheadBehind = dataPoint.aheadBehind;
+                const hasAheadBehind = aheadBehind !== undefined && aheadBehind !== null;
+                const isAhead = aheadBehind >= 0;
+                
+                return (
+                  <div style={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "var(--radius)",
+                    padding: "8px 12px",
+                  }}>
+                    <div style={{ color: "hsl(var(--muted-foreground))", marginBottom: "4px" }}>
+                      {format(parseISO(label), "MMM d, yyyy")}
+                    </div>
+                    <div style={{ color: "hsl(var(--primary))", fontWeight: 600 }}>
+                      {new Intl.NumberFormat('en-US').format(Math.round(dataPoint.cumulativeActual))} lbs
+                    </div>
+                    {hasAheadBehind && (
+                      <div style={{ 
+                        color: isAhead ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)",
+                        fontSize: "12px",
+                        marginTop: "4px"
+                      }}>
+                        {isAhead ? "+" : ""}{new Intl.NumberFormat('en-US').format(Math.round(aheadBehind))} lbs {isAhead ? "ahead" : "behind"}
+                      </div>
+                    )}
+                  </div>
+                );
+              }}
             />
             <Legend wrapperStyle={{ paddingTop: "20px" }} />
             
