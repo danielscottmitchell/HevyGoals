@@ -52,7 +52,12 @@ export function RecentPrs({ prs }: RecentPrsProps) {
                   {pr.exerciseName || "Workout"}
                 </h4>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {format(parseISO(pr.date), "MMM d")} • {pr.type === "exercise_max_weight" ? "Max Weight" : "Volume"}
+                  {format(parseISO(pr.date), "MMM d")} • {
+                    pr.type === "exercise_max_weight" ? "Max Weight" :
+                    pr.type === "exercise_max_set_volume" ? "Set Volume" :
+                    pr.type === "exercise_max_session_volume" ? "Session Volume" :
+                    pr.type === "daily_total_volume" ? "Daily Total" : "PR"
+                  }
                 </div>
               </div>
               <div className="text-right">
