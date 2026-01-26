@@ -1,8 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { ShareButton } from "@/components/ui/share-button";
 import { format, parseISO } from "date-fns";
 import { Trophy, TrendingUp, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { useRef } from "react";
 
 interface RecentPrsProps {
   prs: Array<{
@@ -17,6 +19,7 @@ interface RecentPrsProps {
 }
 
 export function RecentPrs({ prs, year }: RecentPrsProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
   const currentYear = year || new Date().getFullYear();
   const prsThisYear = prs?.filter(pr => {
     const prYear = new Date(pr.date).getFullYear();
@@ -25,12 +28,15 @@ export function RecentPrs({ prs, year }: RecentPrsProps) {
 
   if (!prs || prs.length === 0) {
     return (
-      <Card className="glass-card h-full">
+      <Card ref={cardRef} className="glass-card h-full">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-yellow-500" />
-            Recent Records
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-yellow-500" />
+              Recent Records
+            </CardTitle>
+            <ShareButton targetRef={cardRef} filename="hevy-records" />
+          </div>
         </CardHeader>
         <CardContent className="flex flex-col items-center justify-center h-48 text-muted-foreground">
           <Trophy className="w-8 h-8 mb-2 opacity-20" />
@@ -41,16 +47,19 @@ export function RecentPrs({ prs, year }: RecentPrsProps) {
   }
 
   return (
-    <Card className="glass-card h-full flex flex-col">
+    <Card ref={cardRef} className="glass-card h-full flex flex-col">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Trophy className="w-5 h-5 text-yellow-500" />
             Recent Records
           </CardTitle>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-primary">{prsThisYear.length}</div>
-            <div className="text-xs text-muted-foreground">PRs in {currentYear}</div>
+          <div className="flex items-center gap-2">
+            <div className="text-right">
+              <div className="text-2xl font-bold text-primary">{prsThisYear.length}</div>
+              <div className="text-xs text-muted-foreground">PRs in {currentYear}</div>
+            </div>
+            <ShareButton targetRef={cardRef} filename="hevy-records" />
           </div>
         </div>
       </CardHeader>

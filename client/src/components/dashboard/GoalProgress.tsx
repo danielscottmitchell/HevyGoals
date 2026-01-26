@@ -1,5 +1,6 @@
 import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
+import { ShareButton } from "@/components/ui/share-button";
+import { useRef } from "react";
 
 interface GoalProgressProps {
   current: number;
@@ -10,26 +11,28 @@ interface GoalProgressProps {
 }
 
 export function GoalProgress({ current, target, percentage, daysRemaining, requiredPerDay }: GoalProgressProps) {
-  // Cap percentage at 100 for visual bar, but display real number
+  const cardRef = useRef<HTMLDivElement>(null);
   const displayPercentage = Math.min(100, Math.max(0, percentage));
   
   return (
-    <div className="relative py-6">
-      <div className="flex justify-between items-end mb-2">
+    <div ref={cardRef} className="relative py-6">
+      <div className="flex justify-between items-start mb-2 gap-2">
         <div>
           <span className="text-3xl font-bold font-display text-foreground">{current.toLocaleString()}</span>
           <span className="text-muted-foreground ml-2 text-sm">lbs lifted</span>
         </div>
-        <div className="text-right">
-          <span className="text-sm font-medium text-muted-foreground">Goal: {target.toLocaleString()} lbs</span>
-          <div className="text-2xl font-bold text-primary">{percentage.toFixed(1)}%</div>
+        <div className="flex items-start gap-2">
+          <div className="text-right">
+            <span className="text-sm font-medium text-muted-foreground">Goal: {target.toLocaleString()} lbs</span>
+            <div className="text-2xl font-bold text-primary">{percentage.toFixed(1)}%</div>
+          </div>
+          <ShareButton targetRef={cardRef} filename="hevy-progress" />
         </div>
       </div>
 
       <div className="relative h-4 w-full">
-        <Progress value={displayPercentage} className="h-4 w-full bg-secondary border border-white/5" indicatorClassName="bg-primary shadow-[0_0_20px_rgba(59,130,246,0.5)]" />
+        <Progress value={displayPercentage} className="h-4 w-full bg-secondary border border-white/5" />
         
-        {/* Milestones */}
         {[25, 50, 75].map((mark) => (
           <div 
             key={mark}
