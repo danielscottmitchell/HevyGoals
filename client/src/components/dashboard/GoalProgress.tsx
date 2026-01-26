@@ -23,7 +23,7 @@ export function GoalProgress({ current, target, percentage, daysRemaining, requi
         </div>
         <div className="flex items-start gap-2">
           <div className="text-right">
-            <span className="text-sm font-medium text-muted-foreground">Goal: {target.toLocaleString()} lbs</span>
+            <span className="text-sm font-medium text-muted-foreground">Goal: {(target / 1000000).toFixed(1)}M lbs</span>
             <div className="text-2xl font-bold text-primary">{percentage.toFixed(1)}%</div>
           </div>
           <ShareButton targetRef={cardRef} filename="hevy-progress" />
