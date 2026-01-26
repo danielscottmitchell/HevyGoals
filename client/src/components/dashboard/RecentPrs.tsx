@@ -1,6 +1,8 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { format, parseISO } from "date-fns";
-import { Trophy, TrendingUp } from "lucide-react";
+import { Trophy, TrendingUp, ArrowRight } from "lucide-react";
+import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
 
 interface RecentPrsProps {
   prs: Array<{
@@ -40,9 +42,9 @@ export function RecentPrs({ prs }: RecentPrsProps) {
         </CardTitle>
         <CardDescription>Your latest personal bests</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto custom-scrollbar pr-2 max-h-[400px]">
-        <div className="space-y-4">
-          {prs.map((pr) => (
+      <CardContent className="flex-1">
+        <div className="space-y-3">
+          {prs.slice(0, 5).map((pr) => (
             <div 
               key={pr.id} 
               className="flex items-start justify-between p-3 rounded-lg bg-secondary/30 border border-white/5 hover:bg-secondary/50 transition-colors group"
@@ -62,7 +64,7 @@ export function RecentPrs({ prs }: RecentPrsProps) {
               </div>
               <div className="text-right">
                 <div className="font-mono font-bold text-accent">
-                  {pr.value.toLocaleString()} {pr.type.includes("weight") ? "lbs" : "lbs"}
+                  {pr.value.toLocaleString()} lbs
                 </div>
                 {pr.delta !== undefined && pr.delta > 0 && (
                   <div className="text-xs text-emerald-500 flex items-center justify-end gap-1 mt-0.5">
@@ -75,6 +77,14 @@ export function RecentPrs({ prs }: RecentPrsProps) {
           ))}
         </div>
       </CardContent>
+      <CardFooter className="pt-2">
+        <Link href="/prs" className="w-full">
+          <Button variant="ghost" className="w-full justify-between" data-testid="link-view-all-prs">
+            View all records
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </Link>
+      </CardFooter>
     </Card>
   );
 }
