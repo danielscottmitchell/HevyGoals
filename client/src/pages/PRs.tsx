@@ -1,15 +1,21 @@
-import { useExercisePrs, useTopWorkouts } from "@/hooks/use-hevy";
+import { useExercisePrs, useTopWorkouts, useSettings } from "@/hooks/use-hevy";
 import { Shell } from "@/components/layout/Shell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Trophy, Dumbbell, TrendingUp, Flame, Crown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export default function PRs() {
   const { data: prs, isLoading: prsLoading } = useExercisePrs();
   const { data: topWorkouts, isLoading: workoutsLoading } = useTopWorkouts();
+  const { data: settings } = useSettings();
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterByYear, setFilterByYear] = useState(false);
+  
+  const trackedYear = settings?.selectedYear || new Date().getFullYear();
 
   const isLoading = prsLoading || workoutsLoading;
 
@@ -23,9 +29,20 @@ export default function PRs() {
     );
   }
 
-  const filteredPrs = prs?.filter(pr => 
-    pr.exerciseName.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const filteredPrs = prs?.filter(pr => {
+    const matchesSearch = pr.exerciseName.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+    
+    if (filterByYear) {
+      // Check if any of the PR dates are from the tracked year
+      const dates = [pr.maxWeightDate, pr.maxSetVolumeDate, pr.maxSessionVolumeDate];
+      return dates.some(date => {
+        if (!date) return false;
+        return new Date(date + 'T00:00:00').getFullYear() === trackedYear;
+      });
+    }
+    return true;
+  }) || [];
 
   const formatWeight = (weight: string | number | null) => {
     if (weight === null || weight === undefined) return "-";
@@ -120,13 +137,26 @@ export default function PRs() {
             <Dumbbell className="h-5 w-5" />
             Exercise PRs
           </h2>
-          <div className="w-full sm:w-72">
-            <Input
-              placeholder="Search exercises..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              data-testid="input-search-prs"
-            />
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="year-filter"
+                checked={filterByYear}
+                onCheckedChange={setFilterByYear}
+                data-testid="switch-year-filter"
+              />
+              <Label htmlFor="year-filter" className="text-sm cursor-pointer whitespace-nowrap">
+                {trackedYear} only
+              </Label>
+            </div>
+            <div className="w-full sm:w-56">
+              <Input
+                placeholder="Search exercises..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                data-testid="input-search-prs"
+              />
+            </div>
           </div>
         </div>
 
