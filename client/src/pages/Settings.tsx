@@ -9,7 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertHevyConnectionSchema } from "@shared/schema";
 import { z } from "zod";
 import { useEffect, useState } from "react";
-import { Loader2, Save, Key, Target, RefreshCw, Scale, Plus, Trash2, Calendar } from "lucide-react";
+import { Loader2, Save, Key, Target, RefreshCw, Scale, Plus, Trash2, Calendar, Eye, EyeOff } from "lucide-react";
 
 // Schema for the form
 const formSchema = insertHevyConnectionSchema.pick({
@@ -33,6 +33,7 @@ export default function Settings() {
   
   const [newWeightDate, setNewWeightDate] = useState(new Date().toISOString().split('T')[0]);
   const [newWeightValue, setNewWeightValue] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -120,7 +121,27 @@ export default function Settings() {
                       <FormControl>
                         <div className="relative">
                           <Key className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                          <Input placeholder="your_api_key_here" className="pl-9" {...field} />
+                          <Input 
+                            type={showApiKey ? "text" : "password"}
+                            placeholder="your_api_key_here" 
+                            className="pl-9 pr-10" 
+                            data-testid="input-api-key"
+                            {...field} 
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1 top-0.5 h-8 w-8"
+                            onClick={() => setShowApiKey(!showApiKey)}
+                            data-testid="button-toggle-api-key"
+                          >
+                            {showApiKey ? (
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
                         </div>
                       </FormControl>
                       <FormDescription>
