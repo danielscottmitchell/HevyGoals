@@ -16,7 +16,13 @@ interface RecentPrsProps {
   year?: number;
 }
 
-export function RecentPrs({ prs }: RecentPrsProps) {
+export function RecentPrs({ prs, year }: RecentPrsProps) {
+  const currentYear = year || new Date().getFullYear();
+  const prsThisYear = prs?.filter(pr => {
+    const prYear = new Date(pr.date).getFullYear();
+    return prYear === currentYear;
+  }) || [];
+
   if (!prs || prs.length === 0) {
     return (
       <Card className="glass-card h-full">
@@ -37,11 +43,16 @@ export function RecentPrs({ prs }: RecentPrsProps) {
   return (
     <Card className="glass-card h-full flex flex-col">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-yellow-500" />
-          Recent Records
-        </CardTitle>
-        <CardDescription>Your latest personal bests</CardDescription>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-yellow-500" />
+            Recent Records
+          </CardTitle>
+          <div className="text-right">
+            <div className="text-2xl font-bold text-primary">{prsThisYear.length}</div>
+            <div className="text-xs text-muted-foreground">PRs in {currentYear}</div>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="flex-1">
         <div className="space-y-3">
