@@ -1,6 +1,6 @@
-import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { format, parseISO, differenceInDays, startOfYear } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 interface VolumeChartProps {
   data: Array<{
@@ -17,34 +17,16 @@ interface VolumeChartProps {
 export function VolumeChart({ data }: VolumeChartProps) {
   if (!data || data.length === 0) return null;
 
-  const year = new Date(data[0]?.date).getFullYear();
-  const yearStart = startOfYear(new Date(year, 0, 1));
-  
-  const today = new Date();
-  const currentDayOfYear = differenceInDays(today, yearStart);
-  
   const goalPerDay = data[1]?.targetVolume || 0;
-  const todayTarget = goalPerDay * currentDayOfYear;
-  const lastActualValue = data[data.length - 1]?.cumulativeActual || 0;
+  const lastPoint = data[data.length - 1];
+  const endTarget = lastPoint?.targetForDay || (goalPerDay * 26);
 
   const chartData = data.map((point, index) => {
-    const dayOfYear = differenceInDays(parseISO(point.date), yearStart);
+    const visualTarget = (endTarget * index) / (data.length - 1);
     return {
       ...point,
-      dayOfYear,
-      targetLine: index === 0 ? 0 : undefined
+      visualTarget
     };
-  });
-
-  chartData.push({
-    date: today.toISOString().split('T')[0],
-    actualVolume: 0,
-    targetVolume: goalPerDay,
-    cumulativeActual: lastActualValue,
-    cumulativeTarget: todayTarget,
-    dayOfYear: currentDayOfYear,
-    targetLine: todayTarget,
-    aheadBehind: lastActualValue - todayTarget
   });
 
   return (
@@ -55,7 +37,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
       </CardHeader>
       <CardContent className="flex-1 min-h-0 pb-4">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
             <defs>
               <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
@@ -64,17 +46,12 @@ export function VolumeChart({ data }: VolumeChartProps) {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
             <XAxis 
-              dataKey="dayOfYear"
-              type="number"
-              domain={[0, currentDayOfYear]}
+              dataKey="date" 
               stroke="hsl(var(--muted-foreground))" 
               fontSize={12}
-              tickFormatter={(value) => {
-                const date = new Date(year, 0, value + 1);
-                return format(date, "MMM d");
-              }}
+              tickFormatter={(value) => format(parseISO(value), "MMM d")}
               tickMargin={10}
-              tickCount={5}
+              interval={Math.max(0, Math.floor(data.length / 5) - 1)}
             />
             <YAxis 
               stroke="hsl(var(--muted-foreground))"
@@ -86,7 +63,6 @@ export function VolumeChart({ data }: VolumeChartProps) {
               }}
               tickMargin={10}
               tickCount={6}
-              domain={[0, (dataMax: number) => Math.max(dataMax * 1.1, todayTarget * 1.1)]}
             />
             <Tooltip 
               content={({ active, payload }) => {
@@ -126,15 +102,14 @@ export function VolumeChart({ data }: VolumeChartProps) {
             />
             <Legend wrapperStyle={{ paddingTop: "4px" }} />
             
-            <Line 
+            <Area 
               type="linear" 
               name="Target Pace"
-              dataKey="targetLine" 
+              dataKey="visualTarget" 
               stroke="hsl(var(--muted-foreground))" 
               strokeDasharray="5 5"
+              fill="transparent"
               strokeWidth={2}
-              dot={false}
-              connectNulls={true}
             />
             
             <Area 
@@ -146,7 +121,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
               fill="url(#colorActual)" 
               strokeWidth={3}
             />
-          </ComposedChart>
+          </AreaChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>
