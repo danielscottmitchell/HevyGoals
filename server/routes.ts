@@ -264,7 +264,7 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const userId = (req.user as any).claims.sub;
     
-    const topWorkouts = await storage.getTopWorkouts(userId, 10);
+    const topWorkouts = await storage.getTopWorkouts(userId, 100);
     res.json(topWorkouts);
   });
 
