@@ -1,6 +1,8 @@
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ShareButton } from "@/components/ui/share-button";
 import { format } from "date-fns";
+import { useRef } from "react";
 
 interface VolumeChartProps {
   data: Array<{
@@ -22,6 +24,8 @@ function dateToDay(dateStr: string, year: number): number {
 }
 
 export function VolumeChart({ data }: VolumeChartProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  
   if (!data || data.length === 0) return null;
 
   const year = parseInt(data[0]?.date?.split('-')[0] || '2026');
@@ -69,10 +73,15 @@ export function VolumeChart({ data }: VolumeChartProps) {
   chartData.sort((a, b) => a.day - b.day);
 
   return (
-    <Card className="glass-card col-span-1 lg:col-span-2 h-full flex flex-col">
+    <Card ref={cardRef} className="glass-card h-full flex flex-col">
       <CardHeader className="pb-2">
-        <CardTitle>Volume Trajectory</CardTitle>
-        <CardDescription>Cumulative progress vs. Linear Target</CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle>Volume Trajectory</CardTitle>
+            <CardDescription>Cumulative progress vs. Linear Target</CardDescription>
+          </div>
+          <ShareButton targetRef={cardRef} filename="hevy-trajectory" />
+        </div>
       </CardHeader>
       <CardContent className="flex-1 min-h-0 pb-4">
         <ResponsiveContainer width="100%" height="100%">

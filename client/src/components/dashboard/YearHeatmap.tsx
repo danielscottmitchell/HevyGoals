@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ShareButton } from "@/components/ui/share-button";
 import { format, startOfYear, endOfYear, eachDayOfInterval } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface HeatmapProps {
   data: Array<{
@@ -59,6 +60,7 @@ function HeatmapGrid({ days, dataMap, getColor }: {
 }
 
 export function YearHeatmap({ data, year = new Date().getFullYear() }: HeatmapProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -88,10 +90,15 @@ export function YearHeatmap({ data, year = new Date().getFullYear() }: HeatmapPr
   };
 
   return (
-    <Card className="glass-card">
+    <Card ref={cardRef} className="glass-card">
       <CardHeader>
-        <CardTitle>Consistency Heatmap</CardTitle>
-        <CardDescription>{year} Activity Log</CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle>Consistency Heatmap</CardTitle>
+            <CardDescription>{year} Activity Log</CardDescription>
+          </div>
+          <ShareButton targetRef={cardRef} filename="hevy-heatmap" />
+        </div>
       </CardHeader>
       <CardContent className="pb-4">
         <div className="w-full">
