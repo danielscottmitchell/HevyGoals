@@ -1,6 +1,6 @@
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 
 interface VolumeChartProps {
   data: Array<{
@@ -14,38 +14,44 @@ interface VolumeChartProps {
   }>;
 }
 
+function dateToDay(dateStr: string, year: number): number {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const jan1 = new Date(year, 0, 1);
+  return Math.floor((date.getTime() - jan1.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 export function VolumeChart({ data }: VolumeChartProps) {
   if (!data || data.length === 0) return null;
 
-  const year = new Date(data[0]?.date).getFullYear();
-  const jan1 = new Date(year, 0, 1).getTime();
+  const year = parseInt(data[0]?.date?.split('-')[0] || '2026');
   const today = new Date();
-  const todayTime = today.getTime();
+  const currentDay = Math.floor((today.getTime() - new Date(year, 0, 1).getTime()) / (1000 * 60 * 60 * 24));
   
   const goalPerDay = data[1]?.targetVolume || 0;
-  const daysSinceJan1 = Math.floor((todayTime - jan1) / (1000 * 60 * 60 * 24));
-  const todayTarget = goalPerDay * daysSinceJan1;
+  const todayTarget = goalPerDay * currentDay;
   const lastActual = data[data.length - 1]?.cumulativeActual || 0;
 
   const chartData: Array<{
     date: string;
-    timestamp: number;
-    cumulativeActual: number | null;
+    day: number;
+    cumulativeActual: number;
     targetLine: number | null;
     aheadBehind?: number;
   }> = [];
 
   chartData.push({
-    date: format(new Date(jan1), 'yyyy-MM-dd'),
-    timestamp: jan1,
+    date: `${year}-01-01`,
+    day: 0,
     cumulativeActual: 0,
     targetLine: 0
   });
 
   for (const point of data.slice(1)) {
+    const day = dateToDay(point.date, year);
     chartData.push({
       date: point.date,
-      timestamp: parseISO(point.date).getTime(),
+      day,
       cumulativeActual: point.cumulativeActual,
       targetLine: null,
       aheadBehind: point.aheadBehind
@@ -54,15 +60,13 @@ export function VolumeChart({ data }: VolumeChartProps) {
 
   chartData.push({
     date: format(today, 'yyyy-MM-dd'),
-    timestamp: todayTime,
+    day: currentDay,
     cumulativeActual: lastActual,
     targetLine: todayTarget,
     aheadBehind: lastActual - todayTarget
   });
 
-  chartData.sort((a, b) => a.timestamp - b.timestamp);
-
-  const ticks = chartData.map(d => d.timestamp);
+  chartData.sort((a, b) => a.day - b.day);
 
   return (
     <Card className="glass-card col-span-1 lg:col-span-2 h-full flex flex-col">
@@ -81,13 +85,15 @@ export function VolumeChart({ data }: VolumeChartProps) {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
             <XAxis 
-              dataKey="timestamp"
+              dataKey="day"
               type="number"
-              domain={[jan1, todayTime]}
-              ticks={ticks.filter((_, i) => i === 0 || i === ticks.length - 1 || i % Math.ceil(ticks.length / 5) === 0)}
+              domain={[0, currentDay]}
               stroke="hsl(var(--muted-foreground))" 
               fontSize={12}
-              tickFormatter={(value) => format(new Date(value), "MMM d")}
+              tickFormatter={(value) => {
+                const date = new Date(year, 0, value + 1);
+                return format(date, "MMM d");
+              }}
               tickMargin={10}
             />
             <YAxis 
@@ -100,7 +106,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
               }}
               tickMargin={10}
               tickCount={6}
-              domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.1)]}
+              domain={[0, (dataMax: number) => Math.ceil(Math.max(dataMax, todayTarget) * 1.1)]}
             />
             <Tooltip 
               content={({ active, payload }) => {
@@ -120,7 +126,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
                     padding: "8px 12px",
                   }}>
                     <div style={{ color: "hsl(var(--muted-foreground))", marginBottom: "4px" }}>
-                      {format(parseISO(dataPoint.date), "MMM d, yyyy")}
+                      {format(new Date(year, 0, dataPoint.day + 1), "MMM d, yyyy")}
                     </div>
                     <div style={{ color: "hsl(var(--primary))", fontWeight: 600 }}>
                       {new Intl.NumberFormat('en-US').format(Math.round(dataPoint.cumulativeActual || 0))} lbs
