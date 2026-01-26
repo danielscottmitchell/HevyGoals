@@ -72,7 +72,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
             <Legend wrapperStyle={{ paddingTop: "20px" }} />
             
             <Area 
-              type="monotone" 
+              type="linear" 
               name="Target Pace"
               dataKey="cumulativeTarget" 
               stroke="hsl(var(--muted-foreground))" 
@@ -82,7 +82,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
             />
             
             <Area 
-              type="monotone" 
+              type="linear" 
               name="Actual Volume"
               dataKey="cumulativeActual" 
               stroke="hsl(var(--primary))" 
