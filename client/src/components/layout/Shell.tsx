@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
-import { Dumbbell, LayoutDashboard, Settings, LogOut, User } from "lucide-react";
+import { Dumbbell, LayoutDashboard, Settings, LogOut, User, Trophy } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,9 +43,21 @@ export function Shell({ children }: ShellProps) {
                   variant={isActive("/") ? "secondary" : "ghost"} 
                   size="sm"
                   className="gap-2"
+                  data-testid="nav-dashboard"
                 >
                   <LayoutDashboard className="w-4 h-4" />
                   Dashboard
+                </Button>
+              </Link>
+              <Link href="/prs">
+                <Button 
+                  variant={isActive("/prs") ? "secondary" : "ghost"} 
+                  size="sm"
+                  className="gap-2"
+                  data-testid="nav-prs"
+                >
+                  <Trophy className="w-4 h-4" />
+                  PRs
                 </Button>
               </Link>
               <Link href="/settings">
@@ -53,6 +65,7 @@ export function Shell({ children }: ShellProps) {
                   variant={isActive("/settings") ? "secondary" : "ghost"} 
                   size="sm"
                   className="gap-2"
+                  data-testid="nav-settings"
                 >
                   <Settings className="w-4 h-4" />
                   Settings

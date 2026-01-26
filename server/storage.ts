@@ -4,6 +4,8 @@ import {
   workouts,
   dailyAggregates,
   prEvents,
+  weightLog,
+  exercisePrs,
   type HevyConnection,
   type InsertHevyConnection,
   type Workout,
@@ -11,7 +13,9 @@ import {
   type ChartDataPoint,
   type HeatmapDay,
   type PrFeedItem,
-  hevyConnectionsRelations,
+  type WeightLogEntry,
+  type InsertWeightLog,
+  type ExercisePr,
 } from "@shared/schema";
 import { eq, and, desc, asc, sum, count, gte, lte, sql } from "drizzle-orm";
 
@@ -20,9 +24,21 @@ export interface IStorage {
   getHevyConnection(userId: string): Promise<HevyConnection | undefined>;
   updateHevyConnection(userId: string, data: InsertHevyConnection): Promise<HevyConnection>;
   
+  // Weight Log
+  getWeightLog(userId: string): Promise<WeightLogEntry[]>;
+  addWeightLogEntry(userId: string, data: InsertWeightLog): Promise<WeightLogEntry>;
+  deleteWeightLogEntry(userId: string, id: number): Promise<boolean>;
+  getWeightForDate(userId: string, date: Date): Promise<number>;
+  
   // Workouts
-  upsertWorkouts(userId: string, workoutsData: any[], bodyweightLb?: number): Promise<void>;
+  upsertWorkouts(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>): Promise<void>;
+  deleteWorkouts(userId: string, workoutIds: string[]): Promise<number[]>; // Returns affected years
   getWorkouts(userId: string, year: number): Promise<Workout[]>;
+  getAllWorkoutsRawJson(userId: string): Promise<any[]>;
+  
+  // Exercise PRs
+  getExercisePrs(userId: string): Promise<ExercisePr[]>;
+  calculateExercisePrs(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>): Promise<void>;
   
   // Dashboard Aggregation
   getDashboardStats(userId: string, year: number, goalLb: number): Promise<DashboardStats>;
@@ -55,18 +71,78 @@ export class DatabaseStorage implements IStorage {
     return connection;
   }
 
-  async upsertWorkouts(userId: string, workoutsData: any[], bodyweightLb: number = 180): Promise<void> {
+  // Weight Log Methods
+  async getWeightLog(userId: string): Promise<WeightLogEntry[]> {
+    return db
+      .select()
+      .from(weightLog)
+      .where(eq(weightLog.userId, userId))
+      .orderBy(desc(weightLog.date));
+  }
+
+  async addWeightLogEntry(userId: string, data: InsertWeightLog): Promise<WeightLogEntry> {
+    const [entry] = await db
+      .insert(weightLog)
+      .values({ ...data, userId })
+      .returning();
+    return entry;
+  }
+
+  async deleteWeightLogEntry(userId: string, id: number): Promise<boolean> {
+    const result = await db
+      .delete(weightLog)
+      .where(and(eq(weightLog.id, id), eq(weightLog.userId, userId)));
+    return true;
+  }
+
+  async getWeightForDate(userId: string, date: Date): Promise<number> {
+    const dateStr = date.toISOString().split('T')[0];
+    
+    // Get the closest weight entry on or before this date
+    const entries = await db
+      .select()
+      .from(weightLog)
+      .where(and(eq(weightLog.userId, userId), lte(weightLog.date, dateStr)))
+      .orderBy(desc(weightLog.date))
+      .limit(1);
+    
+    if (entries.length > 0) {
+      return parseFloat(entries[0].weightLb);
+    }
+    
+    // Fallback to the first entry after this date if none before
+    const futureEntries = await db
+      .select()
+      .from(weightLog)
+      .where(and(eq(weightLog.userId, userId), gte(weightLog.date, dateStr)))
+      .orderBy(asc(weightLog.date))
+      .limit(1);
+    
+    if (futureEntries.length > 0) {
+      return parseFloat(futureEntries[0].weightLb);
+    }
+    
+    // Fallback to connection bodyweight setting
+    const connection = await this.getHevyConnection(userId);
+    return connection?.bodyweightLb ? parseFloat(connection.bodyweightLb) : 180;
+  }
+
+  async upsertWorkouts(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>): Promise<void> {
     if (workoutsData.length === 0) return;
     
     // Transform Hevy workout to our schema
-    const rows = workoutsData.map(w => ({
-      id: w.id,
-      userId,
-      title: w.title,
-      startTime: new Date(w.start_time),
-      endTime: w.end_time ? new Date(w.end_time) : null,
-      volumeLb: calculateVolumeLb(w, bodyweightLb).toString(),
-      rawJson: w,
+    const rows = await Promise.all(workoutsData.map(async w => {
+      const workoutDate = new Date(w.start_time);
+      const bodyweightLb = await getBodyweight(workoutDate);
+      return {
+        id: w.id,
+        userId,
+        title: w.title,
+        startTime: workoutDate,
+        endTime: w.end_time ? new Date(w.end_time) : null,
+        volumeLb: calculateVolumeLb(w, bodyweightLb).toString(),
+        rawJson: w,
+      };
     }));
 
     await db.insert(workouts)
@@ -81,6 +157,136 @@ export class DatabaseStorage implements IStorage {
             rawJson: sql`excluded.raw_json`
         }
       });
+  }
+
+  async deleteWorkouts(userId: string, workoutIds: string[]): Promise<number[]> {
+    if (workoutIds.length === 0) return [];
+    
+    // Get years from workouts before deletion for recalculating aggregates
+    const affectedYears = new Set<number>();
+    
+    for (const id of workoutIds) {
+      const [workout] = await db
+        .select({ startTime: workouts.startTime })
+        .from(workouts)
+        .where(and(eq(workouts.id, id), eq(workouts.userId, userId)));
+      
+      if (workout) {
+        affectedYears.add(workout.startTime.getFullYear());
+        await db.delete(workouts)
+          .where(and(eq(workouts.id, id), eq(workouts.userId, userId)));
+      }
+    }
+    
+    return Array.from(affectedYears);
+  }
+
+  async getAllWorkoutsRawJson(userId: string): Promise<any[]> {
+    const allWorkouts = await db
+      .select({ rawJson: workouts.rawJson })
+      .from(workouts)
+      .where(eq(workouts.userId, userId));
+    
+    return allWorkouts.map(w => w.rawJson).filter(Boolean);
+  }
+  
+  // Exercise PRs
+  async getExercisePrs(userId: string): Promise<ExercisePr[]> {
+    return db
+      .select()
+      .from(exercisePrs)
+      .where(eq(exercisePrs.userId, userId))
+      .orderBy(desc(exercisePrs.maxWeightLb));
+  }
+
+  async calculateExercisePrs(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>): Promise<void> {
+    // Track PRs per exercise
+    const prMap = new Map<string, {
+      exerciseName: string;
+      exerciseType: string;
+      maxWeightLb: number;
+      maxWeightReps: number;
+      maxWeightDate: string;
+      maxSetVolumeLb: number;
+      maxSetVolumeDate: string;
+      maxSessionVolumeLb: number;
+      maxSessionVolumeDate: string;
+    }>();
+
+    for (const workout of workoutsData) {
+      const workoutDate = new Date(workout.start_time);
+      const dateStr = workoutDate.toISOString().split('T')[0];
+      const bodyweightLb = await getBodyweight(workoutDate);
+
+      for (const ex of workout.exercises) {
+        const exerciseId = ex.exercise_template_id;
+        const exerciseName = ex.title;
+        const exerciseType = ex.exercise_type || 'weight_reps';
+        
+        let sessionVolume = 0;
+        
+        for (const set of ex.sets) {
+          const { weightLb, volumeLb } = calculateSetMetrics(set, exerciseType, bodyweightLb);
+          sessionVolume += volumeLb;
+          
+          const current = prMap.get(exerciseId) || {
+            exerciseName,
+            exerciseType,
+            maxWeightLb: 0,
+            maxWeightReps: 0,
+            maxWeightDate: dateStr,
+            maxSetVolumeLb: 0,
+            maxSetVolumeDate: dateStr,
+            maxSessionVolumeLb: 0,
+            maxSessionVolumeDate: dateStr,
+          };
+
+          // Update max weight
+          if (weightLb > current.maxWeightLb) {
+            current.maxWeightLb = weightLb;
+            current.maxWeightReps = set.reps || 0;
+            current.maxWeightDate = dateStr;
+          }
+
+          // Update max set volume
+          if (volumeLb > current.maxSetVolumeLb) {
+            current.maxSetVolumeLb = volumeLb;
+            current.maxSetVolumeDate = dateStr;
+          }
+
+          prMap.set(exerciseId, current);
+        }
+
+        // Update max session volume
+        const current = prMap.get(exerciseId)!;
+        if (sessionVolume > current.maxSessionVolumeLb) {
+          current.maxSessionVolumeLb = sessionVolume;
+          current.maxSessionVolumeDate = dateStr;
+        }
+        prMap.set(exerciseId, current);
+      }
+    }
+
+    // Clear and insert all exercise PRs
+    await db.delete(exercisePrs).where(eq(exercisePrs.userId, userId));
+    
+    const rows = Array.from(prMap.entries()).map(([exerciseId, data]) => ({
+      userId,
+      exerciseTemplateId: exerciseId,
+      exerciseName: data.exerciseName,
+      exerciseType: data.exerciseType,
+      maxWeightLb: data.maxWeightLb.toString(),
+      maxWeightReps: data.maxWeightReps,
+      maxWeightDate: data.maxWeightDate,
+      maxSetVolumeLb: data.maxSetVolumeLb.toString(),
+      maxSetVolumeDate: data.maxSetVolumeDate,
+      maxSessionVolumeLb: data.maxSessionVolumeLb.toString(),
+      maxSessionVolumeDate: data.maxSessionVolumeDate,
+    }));
+
+    if (rows.length > 0) {
+      await db.insert(exercisePrs).values(rows);
+    }
   }
 
   async getWorkouts(userId: string, year: number): Promise<Workout[]> {
@@ -315,19 +521,51 @@ export class DatabaseStorage implements IStorage {
 export const storage = new DatabaseStorage();
 
 // Helpers
+function calculateSetMetrics(set: any, exerciseType: string, bodyweightLb: number): { weightLb: number; volumeLb: number } {
+    const reps = set.reps || 0;
+    if (reps === 0) return { weightLb: 0, volumeLb: 0 };
+    
+    const weightKg = set.weight_kg || 0;
+    const weightLbFromKg = weightKg * 2.20462;
+    
+    let effectiveWeight = 0;
+    
+    switch (exerciseType) {
+        case 'bodyweight':
+            // Pure bodyweight (pushups, pullups, etc.) - use bodyweight as the weight
+            effectiveWeight = bodyweightLb;
+            break;
+        case 'bodyweight_weighted':
+            // Weighted bodyweight (weighted pullups, dips with added weight)
+            // Total = bodyweight + added weight
+            effectiveWeight = bodyweightLb + weightLbFromKg;
+            break;
+        case 'bodyweight_assisted':
+            // Assisted bodyweight (assisted dips, assisted pullups)
+            // Total = bodyweight - assistance weight
+            effectiveWeight = Math.max(0, bodyweightLb - weightLbFromKg);
+            break;
+        case 'weight_reps':
+        case 'weighted':
+        default:
+            // Standard weighted exercise (barbell, dumbbell, machine)
+            effectiveWeight = weightLbFromKg;
+            break;
+    }
+    
+    return {
+        weightLb: Math.round(effectiveWeight * 100) / 100,
+        volumeLb: Math.round(effectiveWeight * reps)
+    };
+}
+
 function calculateVolumeLb(workout: any, bodyweightLb: number = 180): number {
     let vol = 0;
     for (const ex of workout.exercises) {
+        const exerciseType = ex.exercise_type || 'weight_reps';
         for (const set of ex.sets) {
-            if (set.reps && set.reps > 0) {
-                if (set.weight_kg && set.weight_kg > 0) {
-                    // Weighted exercise
-                    vol += (set.weight_kg * 2.20462) * set.reps;
-                } else {
-                    // Bodyweight exercise (weight_kg is null or 0)
-                    vol += bodyweightLb * set.reps;
-                }
-            }
+            const { volumeLb } = calculateSetMetrics(set, exerciseType, bodyweightLb);
+            vol += volumeLb;
         }
     }
     return Math.round(vol);

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertHevyConnectionSchema, hevyConnections } from './schema';
+import { insertHevyConnectionSchema, insertWeightLogSchema, hevyConnections, weightLog, exercisePrs } from './schema';
 
 // ============================================
 // SHARED ERROR SCHEMAS
@@ -30,7 +30,7 @@ export const api = {
       path: '/api/settings',
       responses: {
         200: z.custom<typeof hevyConnections.$inferSelect>(),
-        404: errorSchemas.notFound, // Not connected yet
+        404: errorSchemas.notFound,
       },
     },
     update: {
@@ -48,6 +48,41 @@ export const api = {
       responses: {
         200: z.object({ success: z.boolean(), message: z.string() }),
         400: errorSchemas.validation,
+      },
+    },
+  },
+  weightLog: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/weight-log',
+      responses: {
+        200: z.array(z.custom<typeof weightLog.$inferSelect>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/weight-log',
+      input: insertWeightLogSchema,
+      responses: {
+        201: z.custom<typeof weightLog.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/weight-log/:id',
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+  exercisePrs: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/exercise-prs',
+      responses: {
+        200: z.array(z.custom<typeof exercisePrs.$inferSelect>()),
       },
     },
   },
