@@ -18,8 +18,8 @@ export function GoalProgress({ current, target, percentage, daysRemaining, requi
     <div ref={cardRef} className="relative py-6">
       <div className="flex justify-between items-start mb-2 gap-2">
         <div>
-          <span className="text-3xl font-bold font-display text-foreground">{current.toLocaleString()}</span>
-          <span className="text-muted-foreground ml-2 text-sm">lbs lifted</span>
+          <div className="text-3xl font-bold font-display text-foreground">{current.toLocaleString()}</div>
+          <div className="text-muted-foreground text-sm">lbs lifted</div>
         </div>
         <div className="flex items-start gap-2">
           <div className="text-right">
