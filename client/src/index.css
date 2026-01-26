@@ -43,6 +43,43 @@
   --chart-5: 0 84% 60%;   /* Danger Red */
 }
 
+.light {
+  /* Light Theme */
+  --background: 0 0% 100%;
+  --foreground: 224 71% 4%;
+
+  --card: 0 0% 98%;
+  --card-foreground: 224 71% 4%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 224 71% 4%;
+
+  --primary: 217 91% 50%;
+  --primary-foreground: 210 40% 98%;
+
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 224 71% 4%;
+
+  --muted: 220 14% 96%;
+  --muted-foreground: 220 9% 46%;
+
+  --accent: 217 91% 50%;
+  --accent-foreground: 210 40% 98%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --ring: 224 76% 48%;
+
+  --chart-1: 217 91% 50%;
+  --chart-2: 142 71% 40%;
+  --chart-3: 262 83% 50%;
+  --chart-4: 47 95% 45%;
+  --chart-5: 0 84% 55%;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -78,9 +115,13 @@
 
 /* Glassmorphism utilities */
 .glass {
-  @apply bg-background/80 backdrop-blur-md border border-white/10;
+  @apply bg-background/80 backdrop-blur-md border border-border;
 }
 
 .glass-card {
-  @apply bg-card/50 backdrop-blur-sm border border-white/5 shadow-xl shadow-black/20;
+  @apply bg-card/80 backdrop-blur-sm border border-border shadow-xl shadow-black/10;
+}
+
+.light .glass-card {
+  @apply shadow-black/5;
 }
