@@ -609,9 +609,11 @@ export class DatabaseStorage implements IStorage {
     const now = new Date();
     const isCurrentYear = now.getFullYear() === year;
     const endDate = isCurrentYear ? now : new Date(year, 11, 31);
-    const endDateStr = endDate.toISOString().split('T')[0];
     const endDayIndex = getDayOfYear(endDate);
     const endTarget = targetPerDay * endDayIndex;
+    
+    // Total number of points will be: 1 (start) + aggregates.length
+    const totalPoints = aggregates.length + 1;
     
     // Add starting point (Jan 1)
     const yearStart = `${year}-01-01`;
@@ -620,39 +622,34 @@ export class DatabaseStorage implements IStorage {
         actualVolume: 0,
         targetVolume: targetPerDay,
         cumulativeActual: 0,
-        cumulativeTarget: 0
+        cumulativeTarget: 0,
+        targetForDay: 0,
+        aheadBehind: 0
     });
     
     // Add actual workout data points
-    for (const agg of aggregates) {
+    // Calculate target at each point based on visual position (index-based for categorical X-axis)
+    for (let i = 0; i < aggregates.length; i++) {
+        const agg = aggregates[i];
         cumulative += parseFloat(agg.volumeLb);
+        const pointIndex = i + 1; // +1 because start point is at index 0
+        
+        // Visual target: linear interpolation based on position in chart
+        const visualTarget = (endTarget * pointIndex) / (totalPoints - 1);
+        
+        // Calendar-based target for tooltip reference
         const dayIndex = getDayOfYear(new Date(agg.date));
-        const targetForDay = targetPerDay * dayIndex;
+        const calendarTarget = targetPerDay * dayIndex;
         
         points.push({
             date: agg.date,
             actualVolume: parseFloat(agg.volumeLb),
             targetVolume: targetPerDay,
             cumulativeActual: cumulative,
-            cumulativeTarget: null as any, // null for straight line (connectNulls draws between start/end)
-            targetForDay: targetForDay,
-            aheadBehind: cumulative - targetForDay // Positive = ahead, negative = behind
+            cumulativeTarget: visualTarget, // Show at each point for accurate visual comparison
+            targetForDay: calendarTarget,
+            aheadBehind: cumulative - calendarTarget // Based on calendar for accurate tooltip
         });
-    }
-    
-    // Add endpoint with the target value for straight line
-    const lastPoint = points[points.length - 1];
-    if (lastPoint && lastPoint.date !== endDateStr) {
-        points.push({
-            date: endDateStr,
-            actualVolume: 0,
-            targetVolume: targetPerDay,
-            cumulativeActual: cumulative,
-            cumulativeTarget: endTarget
-        });
-    } else if (lastPoint) {
-        // Update the last point to include the target
-        lastPoint.cumulativeTarget = endTarget;
     }
 
     return points;

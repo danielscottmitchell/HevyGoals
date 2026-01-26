@@ -23,7 +23,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
         <CardTitle>Volume Trajectory</CardTitle>
         <CardDescription>Cumulative progress vs. Linear Target</CardDescription>
       </CardHeader>
-      <CardContent className="h-[320px] pt-0">
+      <CardContent className="h-[280px] pt-0 pb-4">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <defs>
@@ -96,7 +96,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
                 );
               }}
             />
-            <Legend wrapperStyle={{ paddingTop: "20px" }} />
+            <Legend wrapperStyle={{ paddingTop: "8px" }} />
             
             <Area 
               type="linear" 
@@ -106,7 +106,6 @@ export function VolumeChart({ data }: VolumeChartProps) {
               strokeDasharray="5 5"
               fill="transparent"
               strokeWidth={2}
-              connectNulls={true}
             />
             
             <Area 
