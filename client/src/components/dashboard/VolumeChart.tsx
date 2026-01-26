@@ -1,4 +1,4 @@
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { format, parseISO } from "date-fns";
 
@@ -17,16 +17,35 @@ interface VolumeChartProps {
 export function VolumeChart({ data }: VolumeChartProps) {
   if (!data || data.length === 0) return null;
 
+  const year = new Date(data[0]?.date).getFullYear();
+  const jan1 = new Date(year, 0, 1).getTime();
+  const today = new Date();
+  const todayTime = today.getTime();
+  
   const goalPerDay = data[1]?.targetVolume || 0;
-  const lastPoint = data[data.length - 1];
-  const endTarget = lastPoint?.targetForDay || (goalPerDay * 26);
+  const daysSinceJan1 = Math.floor((todayTime - jan1) / (1000 * 60 * 60 * 24));
+  const todayTarget = goalPerDay * daysSinceJan1;
 
-  const chartData = data.map((point, index) => {
-    const visualTarget = (endTarget * index) / (data.length - 1);
-    return {
-      ...point,
-      visualTarget
-    };
+  const chartData = data.map((point) => ({
+    ...point,
+    timestamp: parseISO(point.date).getTime(),
+    targetLine: null as number | null
+  }));
+
+  if (chartData.length > 0) {
+    chartData[0].targetLine = 0;
+  }
+  
+  chartData.push({
+    date: format(today, 'yyyy-MM-dd'),
+    actualVolume: 0,
+    targetVolume: goalPerDay,
+    cumulativeActual: chartData[chartData.length - 1]?.cumulativeActual || 0,
+    cumulativeTarget: todayTarget,
+    targetForDay: todayTarget,
+    aheadBehind: (chartData[chartData.length - 1]?.cumulativeActual || 0) - todayTarget,
+    timestamp: todayTime,
+    targetLine: todayTarget
   });
 
   return (
@@ -37,7 +56,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
       </CardHeader>
       <CardContent className="flex-1 min-h-0 pb-4">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+          <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
             <defs>
               <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
@@ -46,12 +65,14 @@ export function VolumeChart({ data }: VolumeChartProps) {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
             <XAxis 
-              dataKey="date" 
+              dataKey="timestamp"
+              type="number"
+              scale="time"
+              domain={[jan1, todayTime]}
               stroke="hsl(var(--muted-foreground))" 
               fontSize={12}
-              tickFormatter={(value) => format(parseISO(value), "MMM d")}
+              tickFormatter={(value) => format(new Date(value), "MMM d")}
               tickMargin={10}
-              interval={Math.max(0, Math.floor(data.length / 5) - 1)}
             />
             <YAxis 
               stroke="hsl(var(--muted-foreground))"
@@ -102,14 +123,15 @@ export function VolumeChart({ data }: VolumeChartProps) {
             />
             <Legend wrapperStyle={{ paddingTop: "4px" }} />
             
-            <Area 
+            <Line 
               type="linear" 
               name="Target Pace"
-              dataKey="visualTarget" 
+              dataKey="targetLine" 
               stroke="hsl(var(--muted-foreground))" 
               strokeDasharray="5 5"
-              fill="transparent"
               strokeWidth={2}
+              dot={false}
+              connectNulls
             />
             
             <Area 
@@ -121,7 +143,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
               fill="url(#colorActual)" 
               strokeWidth={3}
             />
-          </AreaChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>
