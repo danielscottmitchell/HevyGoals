@@ -622,21 +622,68 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecentPrs(userId: string, limit: number = 10): Promise<PrFeedItem[]> {
-    const events = await db
-        .select()
-        .from(prEvents)
-        .where(eq(prEvents.userId, userId))
-        .orderBy(desc(prEvents.date))
-        .limit(limit);
+    // Get exercise PRs and convert to PR feed items
+    const exercisePrRecords = await db
+      .select()
+      .from(exercisePrs)
+      .where(eq(exercisePrs.userId, userId));
 
-    return events.map(e => ({
-        id: e.id,
-        date: e.date,
-        type: e.type,
-        exerciseName: e.exerciseName || undefined,
-        value: parseFloat(e.value),
-        delta: e.delta ? parseFloat(e.delta) : 0
-    }));
+    // Build a list of all PR events from exercise_prs table
+    const allPrEvents: PrFeedItem[] = [];
+    let idCounter = 1;
+
+    for (const pr of exercisePrRecords) {
+      // Max Weight PR
+      if (pr.maxWeightLb && parseFloat(pr.maxWeightLb) > 0) {
+        allPrEvents.push({
+          id: idCounter++,
+          date: pr.maxWeightDate || '',
+          type: 'exercise_max_weight',
+          exerciseName: pr.exerciseName,
+          value: parseFloat(pr.maxWeightLb),
+          delta: 0,
+        });
+      }
+      // Max Set Volume PR
+      if (pr.maxSetVolumeLb && parseFloat(pr.maxSetVolumeLb) > 0) {
+        allPrEvents.push({
+          id: idCounter++,
+          date: pr.maxSetVolumeDate || '',
+          type: 'exercise_max_set_volume',
+          exerciseName: pr.exerciseName,
+          value: parseFloat(pr.maxSetVolumeLb),
+          delta: 0,
+        });
+      }
+      // Max Session Volume PR
+      if (pr.maxSessionVolumeLb && parseFloat(pr.maxSessionVolumeLb) > 0) {
+        allPrEvents.push({
+          id: idCounter++,
+          date: pr.maxSessionVolumeDate || '',
+          type: 'exercise_max_session_volume',
+          exerciseName: pr.exerciseName,
+          value: parseFloat(pr.maxSessionVolumeLb),
+          delta: 0,
+        });
+      }
+    }
+
+    // Also get top workouts for daily total volume PRs
+    const topWorkouts = await this.getTopWorkouts(userId, 5);
+    for (const workout of topWorkouts) {
+      allPrEvents.push({
+        id: idCounter++,
+        date: workout.date,
+        type: 'daily_total_volume',
+        exerciseName: workout.title || 'Workout',
+        value: workout.volumeLb,
+        delta: 0,
+      });
+    }
+
+    // Sort by date descending and return top N
+    allPrEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return allPrEvents.slice(0, limit);
   }
 }
 
