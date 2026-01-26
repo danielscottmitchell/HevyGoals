@@ -1,16 +1,15 @@
-import { useSettings, useUpdateSettings, useRefreshData } from "@/hooks/use-hevy";
+import { useSettings, useUpdateSettings, useRefreshData, useWeightLog, useAddWeightEntry, useDeleteWeightEntry } from "@/hooks/use-hevy";
 import { Shell } from "@/components/layout/Shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertHevyConnectionSchema } from "@shared/schema";
 import { z } from "zod";
-import { useEffect } from "react";
-import { Loader2, Save, Key, Target, RefreshCw, Scale } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Loader2, Save, Key, Target, RefreshCw, Scale, Plus, Trash2, Calendar } from "lucide-react";
 
 // Schema for the form
 const formSchema = insertHevyConnectionSchema.pick({
@@ -30,6 +29,12 @@ export default function Settings() {
   const { data: settings, isLoading } = useSettings();
   const updateMutation = useUpdateSettings();
   const refreshMutation = useRefreshData();
+  const { data: weightLogData, isLoading: weightLogLoading } = useWeightLog();
+  const addWeightMutation = useAddWeightEntry();
+  const deleteWeightMutation = useDeleteWeightEntry();
+  
+  const [newWeightDate, setNewWeightDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newWeightValue, setNewWeightValue] = useState("");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -59,6 +64,22 @@ export default function Settings() {
 
   const handleRefresh = () => {
     refreshMutation.mutate();
+  };
+
+  const handleAddWeight = () => {
+    if (!newWeightValue || !newWeightDate) return;
+    addWeightMutation.mutate({ 
+      date: newWeightDate, 
+      weightLb: newWeightValue 
+    }, {
+      onSuccess: () => {
+        setNewWeightValue("");
+      }
+    });
+  };
+
+  const handleDeleteWeight = (id: number) => {
+    deleteWeightMutation.mutate(id);
   };
 
   if (isLoading) {
@@ -208,6 +229,7 @@ export default function Settings() {
                 onClick={handleRefresh} 
                 disabled={refreshMutation.isPending}
                 className="w-full sm:w-auto"
+                data-testid="button-sync"
               >
                 {refreshMutation.isPending ? (
                   <>
@@ -224,6 +246,98 @@ export default function Settings() {
             </CardFooter>
           </Card>
         )}
+
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Scale className="h-5 w-5" />
+              Weight Log
+            </CardTitle>
+            <CardDescription>
+              Track your bodyweight over time. The app will use the closest weight entry for each workout date to calculate volume for bodyweight exercises.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="date"
+                    value={newWeightDate}
+                    onChange={(e) => setNewWeightDate(e.target.value)}
+                    className="pl-9"
+                    data-testid="input-weight-date"
+                  />
+                </div>
+              </div>
+              <div className="flex-1">
+                <div className="relative">
+                  <Scale className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    placeholder="Weight (lbs)"
+                    value={newWeightValue}
+                    onChange={(e) => setNewWeightValue(e.target.value)}
+                    className="pl-9"
+                    data-testid="input-weight-value"
+                  />
+                </div>
+              </div>
+              <Button 
+                onClick={handleAddWeight}
+                disabled={addWeightMutation.isPending || !newWeightValue}
+                data-testid="button-add-weight"
+              >
+                {addWeightMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+
+            {weightLogLoading ? (
+              <div className="flex justify-center py-4" data-testid="loading-weight-log">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : weightLogData && weightLogData.length > 0 ? (
+              <div className="space-y-2 max-h-64 overflow-y-auto" data-testid="list-weight-log">
+                {weightLogData.map((entry) => (
+                  <div 
+                    key={entry.id} 
+                    className="flex items-center justify-between p-3 rounded-md bg-muted/50"
+                    data-testid={`weight-entry-${entry.id}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-muted-foreground" data-testid={`text-weight-date-${entry.id}`}>
+                        {new Date(entry.date + 'T00:00:00').toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        })}
+                      </span>
+                      <span className="font-semibold" data-testid={`text-weight-value-${entry.id}`}>{parseFloat(entry.weightLb).toFixed(1)} lbs</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteWeight(entry.id)}
+                      disabled={deleteWeightMutation.isPending}
+                      data-testid={`button-delete-weight-${entry.id}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-weight-log-empty">
+                No weight entries yet. Add your first entry above.
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </Shell>
   );

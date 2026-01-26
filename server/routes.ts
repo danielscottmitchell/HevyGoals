@@ -5,12 +5,35 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 
-// Hevy API Helper (Simple implementation for now)
+// Hevy API Helpers
 async function fetchHevyWorkouts(apiKey: string, page: number = 1): Promise<any> {
     const response = await fetch(`https://api.hevyapp.com/v1/workouts?page=${page}&pageSize=10`, {
-        headers: {
-            'api-key': apiKey
-        }
+        headers: { 'api-key': apiKey }
+    });
+    
+    if (!response.ok) {
+        throw new Error(`Hevy API Error: ${response.statusText}`);
+    }
+    
+    return response.json();
+}
+
+async function fetchHevyWorkoutEvents(apiKey: string, since: Date, page: number = 1): Promise<any> {
+    const sinceStr = since.toISOString();
+    const response = await fetch(`https://api.hevyapp.com/v1/workouts/events?page=${page}&pageSize=10&since=${encodeURIComponent(sinceStr)}`, {
+        headers: { 'api-key': apiKey }
+    });
+    
+    if (!response.ok) {
+        throw new Error(`Hevy API Error: ${response.statusText}`);
+    }
+    
+    return response.json();
+}
+
+async function fetchWorkoutById(apiKey: string, workoutId: string): Promise<any> {
+    const response = await fetch(`https://api.hevyapp.com/v1/workouts/${workoutId}`, {
+        headers: { 'api-key': apiKey }
     });
     
     if (!response.ok) {
@@ -73,47 +96,167 @@ export async function registerRoutes(
     }
 
     try {
-        // Sync Logic
-        // 1. Fetch pages until we get them all (for POC, limit to reasonable amount or all)
-        let page = 1;
-        let hasMore = true;
-        const allWorkouts = [];
+        const isFullSync = !connection.lastSyncAt;
+        const updatedWorkouts: any[] = [];
+        const deletedIds: string[] = [];
+        
+        // Create bodyweight lookup function
+        const getBodyweight = async (date: Date) => storage.getWeightForDate(userId, date);
 
-        while (hasMore) {
-            const data = await fetchHevyWorkouts(connection.apiKey, page);
-            allWorkouts.push(...data.workouts);
-            
-            // Check pagination
-            if (page >= data.page_count) {
-                hasMore = false;
-            } else {
-                page++;
+        if (isFullSync) {
+            // Full sync: fetch all workouts
+            let page = 1;
+            let hasMore = true;
+
+            while (hasMore) {
+                const data = await fetchHevyWorkouts(connection.apiKey, page);
+                updatedWorkouts.push(...data.workouts);
+                
+                if (page >= data.page_count) {
+                    hasMore = false;
+                } else {
+                    page++;
+                }
+                
+                if (page > 50) break; // Safety limit
             }
-            
-            // Safety break for POC
-            if (page > 20) break; // Limit to 200 workouts for safety in POC
+        } else {
+            // Incremental sync: use events endpoint
+            let page = 1;
+            let hasMore = true;
+            const updatedIds: string[] = [];
+
+            while (hasMore) {
+                const data = await fetchHevyWorkoutEvents(connection.apiKey, connection.lastSyncAt, page);
+                
+                for (const event of data.events || []) {
+                    if (event.type === 'updated') {
+                        // Events endpoint provides full workout data
+                        if (event.workout) {
+                            updatedWorkouts.push(event.workout);
+                        } else {
+                            // If only ID provided, fetch full workout
+                            updatedIds.push(event.id);
+                        }
+                    } else if (event.type === 'deleted') {
+                        deletedIds.push(event.id);
+                    }
+                }
+                
+                if (page >= data.page_count) {
+                    hasMore = false;
+                } else {
+                    page++;
+                }
+                
+                if (page > 10) break; // Safety limit for incremental
+            }
+
+            // Fetch full details for any workouts we only got IDs for
+            for (const id of updatedIds) {
+                try {
+                    const workout = await fetchWorkoutById(connection.apiKey, id);
+                    updatedWorkouts.push(workout);
+                } catch (e) {
+                    console.error(`Failed to fetch workout ${id}:`, e);
+                }
+            }
         }
 
-        // 2. Save Workouts with user's bodyweight
-        const bodyweightLb = connection.bodyweightLb ? parseFloat(connection.bodyweightLb) : 180;
-        await storage.upsertWorkouts(userId, allWorkouts, bodyweightLb);
+        // Handle deletions and get affected years
+        let deletionAffectedYears: number[] = [];
+        if (deletedIds.length > 0) {
+            deletionAffectedYears = await storage.deleteWorkouts(userId, deletedIds);
+            // If any deletion IDs weren't found locally, conservatively recalculate selected year
+            // This handles edge case where deletions occurred for workouts we never synced
+            const selectedYear = connection.selectedYear || new Date().getFullYear();
+            if (!deletionAffectedYears.includes(selectedYear)) {
+                deletionAffectedYears.push(selectedYear);
+            }
+        }
 
-        // 3. Recalculate Aggregates
-        const year = connection.selectedYear || new Date().getFullYear();
-        await storage.recalculateAggregatesAndPrs(userId, year);
+        // Save/update workouts
+        await storage.upsertWorkouts(userId, updatedWorkouts, getBodyweight);
+
+        // Recalculate aggregates for affected years (from updates and deletions)
+        const affectedYears = new Set<number>();
+        for (const w of updatedWorkouts) {
+            affectedYears.add(new Date(w.start_time).getFullYear());
+        }
+        for (const year of deletionAffectedYears) {
+            affectedYears.add(year);
+        }
+        for (const year of affectedYears) {
+            await storage.recalculateAggregatesAndPrs(userId, year);
+        }
         
-        // 4. Update last sync
+        // Calculate exercise PRs from stored workout data (not refetching from API)
+        const allStoredWorkouts = await storage.getAllWorkoutsRawJson(userId);
+        await storage.calculateExercisePrs(userId, allStoredWorkouts, getBodyweight);
+        
+        // Update last sync
         await storage.updateHevyConnection(userId, { 
             apiKey: connection.apiKey, 
             lastSyncAt: new Date() 
         });
 
-        res.json({ success: true, message: `Synced ${allWorkouts.length} workouts` });
+        const syncType = isFullSync ? 'full sync' : 'incremental';
+        const deleteMsg = deletedIds.length > 0 ? `, ${deletedIds.length} deleted` : '';
+        res.json({ success: true, message: `Synced ${updatedWorkouts.length} workouts (${syncType})${deleteMsg}` });
 
     } catch (err: any) {
         console.error("Sync Error:", err);
         res.status(500).json({ message: "Sync failed: " + err.message });
     }
+  });
+
+  // Weight Log Routes
+  app.get(api.weightLog.list.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const userId = (req.user as any).claims.sub;
+    
+    const entries = await storage.getWeightLog(userId);
+    res.json(entries);
+  });
+
+  app.post(api.weightLog.create.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const userId = (req.user as any).claims.sub;
+    
+    try {
+        const inputSchema = z.object({
+            date: z.string(),
+            weightLb: z.coerce.string(),
+        });
+        const input = inputSchema.parse(req.body);
+        const entry = await storage.addWeightLogEntry(userId, input);
+        res.status(201).json(entry);
+    } catch (err) {
+        if (err instanceof z.ZodError) {
+            res.status(400).json(err.issues);
+        } else {
+            console.error("Weight log error:", err);
+            res.status(500).json({ message: "Internal Error" });
+        }
+    }
+  });
+
+  app.delete('/api/weight-log/:id', async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const userId = (req.user as any).claims.sub;
+    const id = parseInt(req.params.id);
+    
+    await storage.deleteWeightLogEntry(userId, id);
+    res.sendStatus(204);
+  });
+
+  // Exercise PRs Routes
+  app.get(api.exercisePrs.list.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const userId = (req.user as any).claims.sub;
+    
+    const prs = await storage.getExercisePrs(userId);
+    res.json(prs);
   });
 
   // Dashboard Routes

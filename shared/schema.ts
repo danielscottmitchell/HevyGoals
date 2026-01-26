@@ -58,6 +58,32 @@ export const prEvents = pgTable("pr_events", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Weight Log - tracks bodyweight over time
+export const weightLog = pgTable("weight_log", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  date: date("date").notNull(),
+  weightLb: numeric("weight_lb").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Exercise PRs - tracks best performances per exercise
+export const exercisePrs = pgTable("exercise_prs", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  exerciseTemplateId: text("exercise_template_id").notNull(),
+  exerciseName: text("exercise_name").notNull(),
+  exerciseType: text("exercise_type"), // weight_reps, bodyweight, bodyweight_assisted, bodyweight_weighted, duration, etc.
+  maxWeightLb: numeric("max_weight_lb"), // Heaviest weight lifted
+  maxWeightReps: integer("max_weight_reps"), // Reps at max weight
+  maxWeightDate: date("max_weight_date"),
+  maxSetVolumeLb: numeric("max_set_volume_lb"), // Highest single set volume
+  maxSetVolumeDate: date("max_set_volume_date"),
+  maxSessionVolumeLb: numeric("max_session_volume_lb"), // Highest session volume for this exercise
+  maxSessionVolumeDate: date("max_session_volume_date"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // === RELATIONS ===
 export const hevyConnectionsRelations = relations(hevyConnections, ({ one }) => ({
   user: one(users, {
@@ -87,6 +113,20 @@ export const prEventsRelations = relations(prEvents, ({ one }) => ({
   }),
 }));
 
+export const weightLogRelations = relations(weightLog, ({ one }) => ({
+  user: one(users, {
+    fields: [weightLog.userId],
+    references: [users.id],
+  }),
+}));
+
+export const exercisePrsRelations = relations(exercisePrs, ({ one }) => ({
+  user: one(users, {
+    fields: [exercisePrs.userId],
+    references: [users.id],
+  }),
+}));
+
 // === BASE SCHEMAS ===
 export const insertHevyConnectionSchema = createInsertSchema(hevyConnections).omit({ 
   id: true, 
@@ -97,6 +137,8 @@ export const insertHevyConnectionSchema = createInsertSchema(hevyConnections).om
 export const insertWorkoutSchema = createInsertSchema(workouts);
 export const insertDailyAggregateSchema = createInsertSchema(dailyAggregates).omit({ id: true });
 export const insertPrEventSchema = createInsertSchema(prEvents).omit({ id: true, createdAt: true });
+export const insertWeightLogSchema = createInsertSchema(weightLog).omit({ id: true, userId: true, createdAt: true });
+export const insertExercisePrSchema = createInsertSchema(exercisePrs).omit({ id: true, updatedAt: true });
 
 // === EXPLICIT API CONTRACT TYPES ===
 
@@ -153,3 +195,11 @@ export type DashboardResponse = {
   heatmapData: HeatmapDay[];
   recentPrs: PrFeedItem[];
 };
+
+// Weight Log Types
+export type WeightLogEntry = typeof weightLog.$inferSelect;
+export type InsertWeightLog = z.infer<typeof insertWeightLogSchema>;
+
+// Exercise PR Types
+export type ExercisePr = typeof exercisePrs.$inferSelect;
+export type InsertExercisePr = z.infer<typeof insertExercisePrSchema>;

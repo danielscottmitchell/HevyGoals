@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/Dashboard";
 import Settings from "@/pages/Settings";
+import PRs from "@/pages/PRs";
 import Landing from "@/pages/Landing";
 import NotFound from "@/pages/not-found";
 import { useAuth } from "@/hooks/use-auth";
@@ -28,6 +29,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/prs" component={PRs} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>

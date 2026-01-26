@@ -90,6 +90,107 @@ export function useRefreshData() {
 }
 
 // ============================================
+// WEIGHT LOG HOOKS
+// ============================================
+
+export function useWeightLog() {
+  return useQuery({
+    queryKey: [api.weightLog.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.weightLog.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch weight log");
+      return api.weightLog.list.responses[200].parse(await res.json());
+    },
+  });
+}
+
+export function useAddWeightEntry() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (data: { date: string; weightLb: string }) => {
+      const res = await fetch(api.weightLog.create.path, {
+        method: api.weightLog.create.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: "Failed to add weight entry" }));
+        throw new Error(error.message || "Failed to add weight entry");
+      }
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.weightLog.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.dashboard.get.path] });
+      toast({
+        title: "Weight Added",
+        description: "Your weight entry has been saved.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+export function useDeleteWeightEntry() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/weight-log/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: "Failed to delete weight entry" }));
+        throw new Error(error.message || "Failed to delete weight entry");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.weightLog.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.dashboard.get.path] });
+      toast({
+        title: "Entry Deleted",
+        description: "Weight entry has been removed.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+// ============================================
+// EXERCISE PRs HOOKS
+// ============================================
+
+export function useExercisePrs() {
+  return useQuery({
+    queryKey: [api.exercisePrs.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.exercisePrs.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch exercise PRs");
+      return api.exercisePrs.list.responses[200].parse(await res.json());
+    },
+  });
+}
+
+// ============================================
 // DASHBOARD HOOKS
 // ============================================
 
