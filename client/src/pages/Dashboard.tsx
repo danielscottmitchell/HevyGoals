@@ -157,8 +157,10 @@ export default function Dashboard() {
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <VolumeChart data={chartData} />
-          <div className="col-span-1">
+          <div className="col-span-1 lg:col-span-2 min-h-[300px] sm:min-h-[350px]">
+            <VolumeChart data={chartData} />
+          </div>
+          <div className="col-span-1 min-h-[300px] sm:min-h-[350px]">
             <RecentPrs prs={recentPrs} year={new Date().getFullYear()} />
           </div>
         </div>

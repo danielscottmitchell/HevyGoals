@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { format, parseISO, getDay, startOfYear, endOfYear, eachDayOfInterval, isSameDay } from "date-fns";
+import { format, startOfYear, endOfYear, eachDayOfInterval } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useEffect, useState } from "react";
 
 interface HeatmapProps {
   data: Array<{
@@ -13,15 +14,21 @@ interface HeatmapProps {
 }
 
 export function YearHeatmap({ data, year = new Date().getFullYear() }: HeatmapProps) {
-  // Generate all days for the year
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const startDate = startOfYear(new Date(year, 0, 1));
   const endDate = endOfYear(new Date(year, 0, 1));
   const allDays = eachDayOfInterval({ start: startDate, end: endDate });
 
-  // Create a map for fast lookup
   const dataMap = new Map(data.map(d => [d.date, d]));
 
-  // Color scale function
   const getColor = (volume: number) => {
     if (volume === 0) return "bg-secondary";
     if (volume < 5000) return "bg-primary/20";
@@ -31,6 +38,8 @@ export function YearHeatmap({ data, year = new Date().getFullYear() }: HeatmapPr
     return "bg-primary";
   };
 
+  const rows = isMobile ? 14 : 7;
+
   return (
     <Card className="glass-card">
       <CardHeader>
@@ -38,40 +47,43 @@ export function YearHeatmap({ data, year = new Date().getFullYear() }: HeatmapPr
         <CardDescription>{year} Activity Log</CardDescription>
       </CardHeader>
       <CardContent className="pb-4">
-        <div className="w-full">
-          <div className="flex justify-center">
-            <div 
-              className="grid grid-rows-7 grid-flow-col gap-[3px] w-full"
-              style={{ gridAutoColumns: 'minmax(0, 1fr)' }}
-            >
-              {allDays.map((day) => {
-                const dateStr = format(day, "yyyy-MM-dd");
-                const dayData = dataMap.get(dateStr);
-                const volume = dayData?.volumeLb || 0;
-                const prCount = dayData?.prCount || 0;
+        <div className="w-full overflow-x-auto">
+          <div 
+            className="grid gap-[2px] sm:gap-[3px]"
+            style={{ 
+              gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+              gridAutoFlow: 'column',
+              gridAutoColumns: 'minmax(0, 1fr)',
+              minHeight: isMobile ? '280px' : 'auto'
+            }}
+          >
+            {allDays.map((day) => {
+              const dateStr = format(day, "yyyy-MM-dd");
+              const dayData = dataMap.get(dateStr);
+              const volume = dayData?.volumeLb || 0;
+              const prCount = dayData?.prCount || 0;
 
-                return (
-                  <TooltipProvider key={dateStr}>
-                    <Tooltip delayDuration={50}>
-                      <TooltipTrigger asChild>
-                        <div 
-                          className={`
-                            aspect-square rounded-sm transition-all duration-200 
-                            ${getColor(volume)}
-                            ${prCount > 0 ? "ring-1 ring-accent" : ""}
-                          `}
-                        />
-                      </TooltipTrigger>
-                      <TooltipContent className="text-xs">
-                        <div className="font-bold">{format(day, "MMM d, yyyy")}</div>
-                        <div>{volume > 0 ? `${(volume).toLocaleString()} lbs` : "No activity"}</div>
-                        {prCount > 0 && <div className="text-accent mt-1">★ {prCount} PRs</div>}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                );
-              })}
-            </div>
+              return (
+                <TooltipProvider key={dateStr}>
+                  <Tooltip delayDuration={50}>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className={`
+                          aspect-square rounded-sm transition-all duration-200 
+                          ${getColor(volume)}
+                          ${prCount > 0 ? "ring-1 ring-accent" : ""}
+                        `}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent className="text-xs">
+                      <div className="font-bold">{format(day, "MMM d, yyyy")}</div>
+                      <div>{volume > 0 ? `${(volume).toLocaleString()} lbs` : "No activity"}</div>
+                      {prCount > 0 && <div className="text-accent mt-1">★ {prCount} PRs</div>}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })}
           </div>
           
           <div className="flex items-center gap-2 mt-4 text-xs text-muted-foreground justify-end">
