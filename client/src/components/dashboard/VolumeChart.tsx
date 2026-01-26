@@ -62,6 +62,8 @@ export function VolumeChart({ data }: VolumeChartProps) {
 
   chartData.sort((a, b) => a.timestamp - b.timestamp);
 
+  const ticks = chartData.map(d => d.timestamp);
+
   return (
     <Card className="glass-card col-span-1 lg:col-span-2 h-full flex flex-col">
       <CardHeader className="pb-2">
@@ -81,8 +83,8 @@ export function VolumeChart({ data }: VolumeChartProps) {
             <XAxis 
               dataKey="timestamp"
               type="number"
-              domain={['dataMin', 'dataMax']}
-              scale="time"
+              domain={[jan1, todayTime]}
+              ticks={ticks.filter((_, i) => i === 0 || i === ticks.length - 1 || i % Math.ceil(ticks.length / 5) === 0)}
               stroke="hsl(var(--muted-foreground))" 
               fontSize={12}
               tickFormatter={(value) => format(new Date(value), "MMM d")}
