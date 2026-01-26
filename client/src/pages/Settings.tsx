@@ -1,4 +1,4 @@
-import { useSettings, useUpdateSettings, useRefreshData, useWeightLog, useAddWeightEntry, useDeleteWeightEntry } from "@/hooks/use-hevy";
+import { useSettings, useUpdateSettings, useRefreshData, useWeightLog, useAddWeightEntry, useDeleteWeightEntry, useProfile, useUpdateProfile } from "@/hooks/use-hevy";
 import { Shell } from "@/components/layout/Shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertHevyConnectionSchema } from "@shared/schema";
 import { z } from "zod";
 import { useEffect, useState } from "react";
-import { Loader2, Save, Key, Target, RefreshCw, Scale, Plus, Trash2, Calendar, Eye, EyeOff, Sun, Moon } from "lucide-react";
+import { Loader2, Save, Key, Target, RefreshCw, Scale, Plus, Trash2, Calendar, Eye, EyeOff, Sun, Moon, User } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useTheme } from "@/components/ThemeProvider";
@@ -28,7 +28,9 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function Settings() {
   const { data: settings, isLoading } = useSettings();
+  const { data: profile, isLoading: profileLoading } = useProfile();
   const updateMutation = useUpdateSettings();
+  const updateProfileMutation = useUpdateProfile();
   const refreshMutation = useRefreshData();
   const { data: weightLogData, isLoading: weightLogLoading } = useWeightLog();
   const addWeightMutation = useAddWeightEntry();
@@ -38,6 +40,15 @@ export default function Settings() {
   const [newWeightDate, setNewWeightDate] = useState(new Date().toISOString().split('T')[0]);
   const [newWeightValue, setNewWeightValue] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+
+  useEffect(() => {
+    if (profile) {
+      setFirstName(profile.firstName || "");
+      setLastName(profile.lastName || "");
+    }
+  }, [profile]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -87,7 +98,11 @@ export default function Settings() {
     deleteWeightMutation.mutate(id);
   };
 
-  if (isLoading) {
+  const handleSaveProfile = () => {
+    updateProfileMutation.mutate({ firstName, lastName });
+  };
+
+  if (isLoading || profileLoading) {
     return (
       <Shell>
         <div className="h-[60vh] flex items-center justify-center">
@@ -131,6 +146,56 @@ export default function Settings() {
                 <span className="text-sm">Dark</span>
                 <Moon className="h-4 w-4 text-muted-foreground" />
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Profile
+            </CardTitle>
+            <CardDescription>
+              Update your display name.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="First name"
+                  data-testid="input-first-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Last name"
+                  data-testid="input-last-name"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                onClick={handleSaveProfile}
+                disabled={updateProfileMutation.isPending}
+                data-testid="button-save-profile"
+              >
+                {updateProfileMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Save Profile
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -262,38 +327,6 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {settings && (
-          <Card className="border-secondary bg-secondary/20">
-            <CardHeader>
-              <CardTitle>Manual Sync</CardTitle>
-              <CardDescription>
-                Force a synchronization with Hevy. This happens automatically, but you can trigger it manually here.
-              </CardDescription>
-            </CardHeader>
-            <CardFooter>
-              <Button 
-                variant="outline" 
-                onClick={handleRefresh} 
-                disabled={refreshMutation.isPending}
-                className="w-full sm:w-auto"
-                data-testid="button-sync"
-              >
-                {refreshMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Syncing...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Sync Now
-                  </>
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
-        )}
-
         <Card className="glass-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -385,6 +418,38 @@ export default function Settings() {
             )}
           </CardContent>
         </Card>
+
+        {settings && (
+          <Card className="border-secondary bg-secondary/20">
+            <CardHeader>
+              <CardTitle>Manual Sync</CardTitle>
+              <CardDescription>
+                Force a synchronization with Hevy. This happens automatically, but you can trigger it manually here.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter>
+              <Button 
+                variant="outline" 
+                onClick={handleRefresh} 
+                disabled={refreshMutation.isPending}
+                className="w-full sm:w-auto"
+                data-testid="button-sync"
+              >
+                {refreshMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Sync Now
+                  </>
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
       </div>
     </Shell>
   );

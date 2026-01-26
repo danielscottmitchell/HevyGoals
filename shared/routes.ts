@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { insertHevyConnectionSchema, insertWeightLogSchema, hevyConnections, weightLog, exercisePrs } from './schema';
+import { users } from './models/auth';
 
 // ============================================
 // SHARED ERROR SCHEMAS
@@ -24,6 +25,28 @@ export const errorSchemas = {
 // API CONTRACT
 // ============================================
 export const api = {
+  profile: {
+    get: {
+      method: 'GET' as const,
+      path: '/api/profile',
+      responses: {
+        200: z.custom<typeof users.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    update: {
+      method: 'POST' as const,
+      path: '/api/profile',
+      input: z.object({
+        firstName: z.string().optional(),
+        lastName: z.string().optional(),
+      }),
+      responses: {
+        200: z.custom<typeof users.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+  },
   settings: {
     get: {
       method: 'GET' as const,

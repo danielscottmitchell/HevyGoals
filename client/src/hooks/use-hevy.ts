@@ -3,6 +3,58 @@ import { api, type UpdateSettingsInput, type DashboardDataResponse, type Setting
 import { useToast } from "@/hooks/use-toast";
 
 // ============================================
+// PROFILE HOOKS
+// ============================================
+
+export function useProfile() {
+  return useQuery({
+    queryKey: [api.profile.get.path],
+    queryFn: async () => {
+      const res = await fetch(api.profile.get.path, { credentials: "include" });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error("Failed to fetch profile");
+      return api.profile.get.responses[200].parse(await res.json());
+    },
+  });
+}
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (data: { firstName?: string; lastName?: string }) => {
+      const res = await fetch(api.profile.update.path, {
+        method: api.profile.update.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update profile");
+      }
+      return api.profile.update.responses[200].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.profile.get.path] });
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been updated successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update profile",
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+// ============================================
 // SETTINGS HOOKS
 // ============================================
 

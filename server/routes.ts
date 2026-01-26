@@ -51,6 +51,34 @@ export async function registerRoutes(
   await setupAuth(app);
   registerAuthRoutes(app);
 
+  // Profile Routes
+  app.get(api.profile.get.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const userId = (req.user as any).claims.sub;
+    
+    const user = await storage.getUser(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    
+    res.json(user);
+  });
+
+  app.post(api.profile.update.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const userId = (req.user as any).claims.sub;
+    
+    try {
+      const input = api.profile.update.input.parse(req.body);
+      const user = await storage.updateUserProfile(userId, input);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      res.json(user);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0]?.message || "Validation error" });
+      }
+      throw err;
+    }
+  });
+
   // Settings Routes
   app.get(api.settings.get.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);

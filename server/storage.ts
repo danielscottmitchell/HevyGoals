@@ -17,9 +17,14 @@ import {
   type InsertWeightLog,
   type ExercisePr,
 } from "@shared/schema";
+import { users, type User } from "@shared/models/auth";
 import { eq, and, desc, asc, sum, count, gte, lte, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
+  // User Profile
+  getUser(userId: string): Promise<User | undefined>;
+  updateUserProfile(userId: string, data: { firstName?: string; lastName?: string }): Promise<User | undefined>;
+  
   // Hevy Connection
   getHevyConnection(userId: string): Promise<HevyConnection | undefined>;
   updateHevyConnection(userId: string, data: InsertHevyConnection): Promise<HevyConnection>;
@@ -54,6 +59,27 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  async getUser(userId: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId));
+    return user;
+  }
+
+  async updateUserProfile(userId: string, data: { firstName?: string; lastName?: string }): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
   async getHevyConnection(userId: string): Promise<HevyConnection | undefined> {
     const [connection] = await db
       .select()
