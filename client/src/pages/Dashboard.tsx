@@ -5,6 +5,7 @@ import { VolumeChart } from "@/components/dashboard/VolumeChart";
 import { YearHeatmap } from "@/components/dashboard/YearHeatmap";
 import { RecentPrs } from "@/components/dashboard/RecentPrs";
 import { GoalProgress } from "@/components/dashboard/GoalProgress";
+import { CopyStatsButton } from "@/components/dashboard/CopyStatsButton";
 import { Button } from "@/components/ui/button";
 import { Loader2, RefreshCw, CalendarDays, Activity, Target, Trophy, Clock, BarChart3, TrendingUp, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
@@ -76,7 +77,8 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
+            <CopyStatsButton stats={stats} year={new Date().getFullYear()} />
             <Button 
               variant="outline" 
               onClick={handleRefresh} 
