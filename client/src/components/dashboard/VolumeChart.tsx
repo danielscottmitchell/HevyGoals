@@ -24,20 +24,28 @@ export function VolumeChart({ data }: VolumeChartProps) {
   const currentDayOfYear = differenceInDays(today, yearStart);
   
   const goalPerDay = data[1]?.targetVolume || 0;
-  const endTarget = goalPerDay * currentDayOfYear;
+  const todayTarget = goalPerDay * currentDayOfYear;
+  const lastActualValue = data[data.length - 1]?.cumulativeActual || 0;
 
   const chartData = data.map((point, index) => {
     const dayOfYear = differenceInDays(parseISO(point.date), yearStart);
     return {
       ...point,
       dayOfYear,
-      targetLine: index === 0 ? 0 : (index === data.length - 1 ? endTarget : undefined)
+      targetLine: index === 0 ? 0 : undefined
     };
   });
 
-  if (chartData.length > 0 && chartData[chartData.length - 1].targetLine === undefined) {
-    chartData[chartData.length - 1].targetLine = endTarget;
-  }
+  chartData.push({
+    date: today.toISOString().split('T')[0],
+    actualVolume: 0,
+    targetVolume: goalPerDay,
+    cumulativeActual: lastActualValue,
+    cumulativeTarget: todayTarget,
+    dayOfYear: currentDayOfYear,
+    targetLine: todayTarget,
+    aheadBehind: lastActualValue - todayTarget
+  });
 
   return (
     <Card className="glass-card col-span-1 lg:col-span-2 h-full flex flex-col">
@@ -66,7 +74,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
                 return format(date, "MMM d");
               }}
               tickMargin={10}
-              tickCount={6}
+              tickCount={5}
             />
             <YAxis 
               stroke="hsl(var(--muted-foreground))"
@@ -78,7 +86,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
               }}
               tickMargin={10}
               tickCount={6}
-              domain={[0, 'auto']}
+              domain={[0, (dataMax: number) => Math.max(dataMax * 1.1, todayTarget * 1.1)]}
             />
             <Tooltip 
               content={({ active, payload }) => {
