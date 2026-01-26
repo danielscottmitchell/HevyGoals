@@ -9,7 +9,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertHevyConnectionSchema } from "@shared/schema";
 import { z } from "zod";
 import { useEffect, useState } from "react";
-import { Loader2, Save, Key, Target, RefreshCw, Scale, Plus, Trash2, Calendar, Eye, EyeOff } from "lucide-react";
+import { Loader2, Save, Key, Target, RefreshCw, Scale, Plus, Trash2, Calendar, Eye, EyeOff, Sun, Moon } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { useTheme } from "@/components/ThemeProvider";
 
 // Schema for the form
 const formSchema = insertHevyConnectionSchema.pick({
@@ -30,6 +33,7 @@ export default function Settings() {
   const { data: weightLogData, isLoading: weightLogLoading } = useWeightLog();
   const addWeightMutation = useAddWeightEntry();
   const deleteWeightMutation = useDeleteWeightEntry();
+  const { theme, toggleTheme } = useTheme();
   
   const [newWeightDate, setNewWeightDate] = useState(new Date().toISOString().split('T')[0]);
   const [newWeightValue, setNewWeightValue] = useState("");
@@ -100,6 +104,36 @@ export default function Settings() {
           <h1 className="text-3xl font-display font-bold">Settings</h1>
           <p className="text-muted-foreground mt-2">Configure your connection to Hevy and set your volume goals.</p>
         </div>
+
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {theme === "dark" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+              Appearance
+            </CardTitle>
+            <CardDescription>
+              Choose between light and dark mode.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Sun className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">Light</span>
+              </div>
+              <Switch
+                id="theme-toggle"
+                checked={theme === "dark"}
+                onCheckedChange={toggleTheme}
+                data-testid="switch-theme"
+              />
+              <div className="flex items-center gap-3">
+                <span className="text-sm">Dark</span>
+                <Moon className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="glass-card">
           <CardHeader>
