@@ -22,7 +22,24 @@ export function ShareButton({ targetRef, filename = "hevygoals", className }: Sh
         buttonRef.current.style.visibility = "hidden";
       }
 
-      const canvas = await html2canvas(targetRef.current, {
+      const element = targetRef.current;
+      const originalStyle = element.style.cssText;
+      element.style.margin = "16px";
+      
+      const wrapper = document.createElement("div");
+      wrapper.style.display = "inline-block";
+      wrapper.style.padding = "16px";
+      wrapper.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--background').trim() 
+        ? `hsl(${getComputedStyle(document.documentElement).getPropertyValue('--background').trim()})`
+        : "#ffffff";
+      
+      const parent = element.parentNode;
+      if (parent) {
+        parent.insertBefore(wrapper, element);
+        wrapper.appendChild(element);
+      }
+
+      const canvas = await html2canvas(wrapper, {
         backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--background').trim() 
           ? `hsl(${getComputedStyle(document.documentElement).getPropertyValue('--background').trim()})`
           : "#ffffff",
@@ -30,6 +47,12 @@ export function ShareButton({ targetRef, filename = "hevygoals", className }: Sh
         useCORS: true,
         logging: false,
       });
+
+      if (parent) {
+        parent.insertBefore(element, wrapper);
+        wrapper.remove();
+      }
+      element.style.cssText = originalStyle;
 
       if (buttonRef.current) {
         buttonRef.current.style.visibility = "visible";
