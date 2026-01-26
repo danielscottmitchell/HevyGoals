@@ -162,7 +162,19 @@ export default function Settings() {
                         <FormControl>
                           <div className="relative">
                             <Target className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input type="number" {...field} className="pl-9" />
+                            <Input 
+                              type="text"
+                              className="pl-9"
+                              value={field.value ? Number(field.value).toLocaleString() : ''}
+                              onChange={(e) => {
+                                const rawValue = e.target.value.replace(/,/g, '');
+                                if (rawValue === '' || /^\d+$/.test(rawValue)) {
+                                  field.onChange(rawValue ? Number(rawValue) : '');
+                                }
+                              }}
+                              onBlur={field.onBlur}
+                              name={field.name}
+                            />
                           </div>
                         </FormControl>
                         <FormDescription>
