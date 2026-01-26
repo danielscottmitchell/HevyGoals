@@ -23,20 +23,21 @@ export function VolumeChart({ data }: VolumeChartProps) {
   const today = new Date();
   const currentDayOfYear = differenceInDays(today, yearStart);
   
-  const lastDataPoint = data[data.length - 1];
-  const goalPerDay = lastDataPoint?.targetVolume || 0;
+  const goalPerDay = data[1]?.targetVolume || 0;
   const endTarget = goalPerDay * currentDayOfYear;
-  const lastCumulativeActual = lastDataPoint?.cumulativeActual || 0;
 
-  const chartData = [
-    { dayOfYear: 0, cumulativeActual: null, targetLine: 0, date: `${year}-01-01` },
-    ...data.slice(1).map(point => ({
+  const chartData = data.map((point, index) => {
+    const dayOfYear = differenceInDays(parseISO(point.date), yearStart);
+    return {
       ...point,
-      dayOfYear: differenceInDays(parseISO(point.date), yearStart),
-      targetLine: null
-    })),
-    { dayOfYear: currentDayOfYear, cumulativeActual: lastCumulativeActual, targetLine: endTarget, date: today.toISOString().split('T')[0] }
-  ];
+      dayOfYear,
+      targetLine: index === 0 ? 0 : (index === data.length - 1 ? endTarget : undefined)
+    };
+  });
+
+  if (chartData.length > 0 && chartData[chartData.length - 1].targetLine === undefined) {
+    chartData[chartData.length - 1].targetLine = endTarget;
+  }
 
   return (
     <Card className="glass-card col-span-1 lg:col-span-2 h-full flex flex-col">
@@ -83,7 +84,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
               content={({ active, payload }) => {
                 if (!active || !payload || payload.length === 0) return null;
                 const dataPoint = payload[0]?.payload;
-                if (!dataPoint || dataPoint.cumulativeActual === null) return null;
+                if (!dataPoint) return null;
                 
                 const aheadBehind = dataPoint.aheadBehind;
                 const hasAheadBehind = aheadBehind !== undefined && aheadBehind !== null;
@@ -136,7 +137,6 @@ export function VolumeChart({ data }: VolumeChartProps) {
               fillOpacity={1} 
               fill="url(#colorActual)" 
               strokeWidth={3}
-              connectNulls={true}
             />
           </ComposedChart>
         </ResponsiveContainer>
