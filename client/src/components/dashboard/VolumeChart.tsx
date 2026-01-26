@@ -39,14 +39,20 @@ export function VolumeChart({ data }: VolumeChartProps) {
               dataKey="date" 
               stroke="hsl(var(--muted-foreground))" 
               fontSize={12}
-              tickFormatter={(value) => format(parseISO(value), "MMM")}
+              tickFormatter={(value) => format(parseISO(value), "MMM d")}
               tickMargin={10}
+              interval={Math.floor(data.length / 6)}
             />
             <YAxis 
               stroke="hsl(var(--muted-foreground))"
               fontSize={12}
-              tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+              tickFormatter={(value) => {
+                if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+                return value.toString();
+              }}
               tickMargin={10}
+              tickCount={6}
             />
             <Tooltip 
               contentStyle={{ 
