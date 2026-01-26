@@ -88,8 +88,19 @@ export default function PRs() {
               Personal Records
             </h1>
             <p className="text-muted-foreground mt-2">
-              Your all-time best performances.
+              {filterByYear ? `Records set in ${trackedYear}` : "Your all-time best performances."}
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="year-filter"
+              checked={filterByYear}
+              onCheckedChange={setFilterByYear}
+              data-testid="switch-year-filter"
+            />
+            <Label htmlFor="year-filter" className="text-sm cursor-pointer whitespace-nowrap">
+              {trackedYear} only
+            </Label>
           </div>
         </div>
 
@@ -147,26 +158,13 @@ export default function PRs() {
             <Dumbbell className="h-5 w-5" />
             Exercise PRs
           </h2>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Switch
-                id="year-filter"
-                checked={filterByYear}
-                onCheckedChange={setFilterByYear}
-                data-testid="switch-year-filter"
-              />
-              <Label htmlFor="year-filter" className="text-sm cursor-pointer whitespace-nowrap">
-                {trackedYear} only
-              </Label>
-            </div>
-            <div className="w-full sm:w-56">
-              <Input
-                placeholder="Search exercises..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                data-testid="input-search-prs"
-              />
-            </div>
+          <div className="w-full sm:w-56">
+            <Input
+              placeholder="Search exercises..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              data-testid="input-search-prs"
+            />
           </div>
         </div>
 
