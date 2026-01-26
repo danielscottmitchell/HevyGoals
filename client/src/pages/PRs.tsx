@@ -179,7 +179,7 @@ export default function PRs() {
                         <TrendingUp className="h-3 w-3" />
                         <span>Set Vol</span>
                       </div>
-                      <p className="text-xl font-bold text-secondary" data-testid={`value-max-set-volume-${pr.exerciseTemplateId}`}>
+                      <p className="text-xl font-bold text-emerald-500" data-testid={`value-max-set-volume-${pr.exerciseTemplateId}`}>
                         {formatWeight(pr.maxSetVolumeLb)}
                         <span className="text-xs text-muted-foreground ml-0.5">lb</span>
                       </p>
