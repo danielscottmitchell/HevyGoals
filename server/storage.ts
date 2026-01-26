@@ -40,6 +40,9 @@ export interface IStorage {
   getExercisePrs(userId: string): Promise<ExercisePr[]>;
   calculateExercisePrs(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>): Promise<void>;
   
+  // Top Workouts
+  getTopWorkouts(userId: string, limit?: number): Promise<{ id: string; title: string | null; date: string; volumeLb: number }[]>;
+  
   // Dashboard Aggregation
   getDashboardStats(userId: string, year: number, goalLb: number): Promise<DashboardStats>;
   getChartData(userId: string, year: number, goalLb: number): Promise<ChartDataPoint[]>;
@@ -197,6 +200,27 @@ export class DatabaseStorage implements IStorage {
       .from(exercisePrs)
       .where(eq(exercisePrs.userId, userId))
       .orderBy(desc(exercisePrs.maxWeightLb));
+  }
+
+  async getTopWorkouts(userId: string, limit: number = 10): Promise<{ id: string; title: string | null; date: string; volumeLb: number }[]> {
+    const results = await db
+      .select({
+        id: workouts.id,
+        title: workouts.title,
+        startTime: workouts.startTime,
+        volumeLb: workouts.volumeLb,
+      })
+      .from(workouts)
+      .where(eq(workouts.userId, userId))
+      .orderBy(desc(sql`CAST(${workouts.volumeLb} AS DECIMAL)`))
+      .limit(limit);
+    
+    return results.map(w => ({
+      id: w.id,
+      title: w.title,
+      date: w.startTime ? w.startTime.toISOString().split('T')[0] : '',
+      volumeLb: parseFloat(w.volumeLb || '0'),
+    }));
   }
 
   async calculateExercisePrs(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>): Promise<void> {
