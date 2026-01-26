@@ -34,7 +34,7 @@ export default function Landing() {
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">Volume Goals</span>
               </h1>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                Visualize your lifting journey like never before. Track your progress towards the 3,000,000 lb club with advanced analytics for Hevy.
+                Visualize your lifting journey like never before. Track your progress towards lifting millions of pounds with advanced analytics for Hevy.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -66,7 +66,7 @@ export default function Landing() {
 
             <div className="flex-1 w-full max-w-xl lg:max-w-none">
               <div className="relative">
-                <div className="absolute -inset-1 bg-gradient-to-r from-primary to-purple-600 rounded-2xl blur opacity-30 animate-pulse"></div>
+                <div className="absolute -inset-1 bg-gradient-to-r from-primary to-purple-600 rounded-2xl blur opacity-30"></div>
                 <div className="relative glass-card rounded-2xl p-6 border border-white/10 shadow-2xl">
                   {/* Mock UI */}
                   <div className="space-y-6">
