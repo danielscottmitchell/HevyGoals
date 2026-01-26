@@ -43,7 +43,7 @@ export function GoalProgress({ current, target, percentage, daysRemaining, requi
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mt-6">
+      <div className="grid grid-cols-2 gap-4 mt-10">
         <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm flex items-center justify-between">
           <span className="opacity-80">Remaining to Goal</span>
           <span className="font-bold font-mono">{(target - current).toLocaleString()} lbs</span>
