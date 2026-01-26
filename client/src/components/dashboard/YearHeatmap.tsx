@@ -37,13 +37,12 @@ export function YearHeatmap({ data, year = new Date().getFullYear() }: HeatmapPr
         <CardTitle>Consistency Heatmap</CardTitle>
         <CardDescription>{year} Activity Log</CardDescription>
       </CardHeader>
-      <CardContent className="overflow-x-auto pb-4 custom-scrollbar">
-        <div className="min-w-[800px]">
-          <div className="flex gap-1">
-            {/* Simple Grid Layout for the heatmap - grouping by weeks would be complex, doing columns per week */}
-            {/* Instead, let's use a CSS grid with 7 rows and auto-flow column */}
+      <CardContent className="pb-4">
+        <div className="w-full">
+          <div className="flex justify-center">
             <div 
-              className="grid grid-rows-7 grid-flow-col gap-1 w-fit" 
+              className="grid grid-rows-7 grid-flow-col gap-[3px] w-full"
+              style={{ gridAutoColumns: 'minmax(0, 1fr)' }}
             >
               {allDays.map((day) => {
                 const dateStr = format(day, "yyyy-MM-dd");
@@ -57,9 +56,9 @@ export function YearHeatmap({ data, year = new Date().getFullYear() }: HeatmapPr
                       <TooltipTrigger asChild>
                         <div 
                           className={`
-                            w-3 h-3 rounded-sm transition-all duration-200 
+                            aspect-square rounded-sm transition-all duration-200 
                             ${getColor(volume)}
-                            ${prCount > 0 ? "ring-2 ring-accent ring-offset-1 ring-offset-background" : ""}
+                            ${prCount > 0 ? "ring-1 ring-accent" : ""}
                           `}
                         />
                       </TooltipTrigger>
