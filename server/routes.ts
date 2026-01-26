@@ -212,6 +212,9 @@ export async function registerRoutes(
 
         // Then recalculate aggregates for affected years (counts PRs from prEvents)
         const affectedYears = new Set<number>();
+        // Always include the current/selected year to update PR counts
+        const selectedYear = connection.selectedYear || new Date().getFullYear();
+        affectedYears.add(selectedYear);
         for (const w of updatedWorkouts) {
             affectedYears.add(new Date(w.start_time).getFullYear());
         }
