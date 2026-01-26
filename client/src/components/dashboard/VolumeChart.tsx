@@ -79,6 +79,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
               strokeDasharray="5 5"
               fill="transparent"
               strokeWidth={2}
+              connectNulls={true}
             />
             
             <Area 
