@@ -605,6 +605,14 @@ export class DatabaseStorage implements IStorage {
     let cumulative = 0;
     const targetPerDay = goalLb / 365;
     
+    // Determine the date range
+    const now = new Date();
+    const isCurrentYear = now.getFullYear() === year;
+    const endDate = isCurrentYear ? now : new Date(year, 11, 31);
+    const endDateStr = endDate.toISOString().split('T')[0];
+    const endDayIndex = getDayOfYear(endDate);
+    const endTarget = targetPerDay * endDayIndex;
+    
     // Add starting point (Jan 1)
     const yearStart = `${year}-01-01`;
     points.push({
@@ -615,28 +623,20 @@ export class DatabaseStorage implements IStorage {
         cumulativeTarget: 0
     });
     
-    // Add actual workout data points
+    // Add actual workout data points (no target values - those will only be at start/end)
     for (const agg of aggregates) {
         cumulative += parseFloat(agg.volumeLb);
-        const dayIndex = getDayOfYear(new Date(agg.date));
         
         points.push({
             date: agg.date,
             actualVolume: parseFloat(agg.volumeLb),
             targetVolume: targetPerDay,
             cumulativeActual: cumulative,
-            cumulativeTarget: targetPerDay * dayIndex
+            cumulativeTarget: undefined as any // Will be interpolated by straight line
         });
     }
     
-    // Add current day endpoint for target line (or year end if viewing past year)
-    const now = new Date();
-    const isCurrentYear = now.getFullYear() === year;
-    const endDate = isCurrentYear ? now : new Date(year, 11, 31);
-    const endDateStr = endDate.toISOString().split('T')[0];
-    const endDayIndex = getDayOfYear(endDate);
-    
-    // Only add if we don't already have this date
+    // Add endpoint with the target value for straight line
     const lastPoint = points[points.length - 1];
     if (lastPoint && lastPoint.date !== endDateStr) {
         points.push({
@@ -644,8 +644,11 @@ export class DatabaseStorage implements IStorage {
             actualVolume: 0,
             targetVolume: targetPerDay,
             cumulativeActual: cumulative,
-            cumulativeTarget: targetPerDay * endDayIndex
+            cumulativeTarget: endTarget
         });
+    } else if (lastPoint) {
+        // Update the last point to include the target
+        lastPoint.cumulativeTarget = endTarget;
     }
 
     return points;
