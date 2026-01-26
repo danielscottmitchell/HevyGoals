@@ -44,6 +44,12 @@ export default function PRs() {
     return true;
   }) || [];
 
+  const filteredTopWorkouts = topWorkouts?.filter(workout => {
+    if (!filterByYear) return true;
+    if (!workout.date) return false;
+    return new Date(workout.date + 'T00:00:00').getFullYear() === trackedYear;
+  }) || [];
+
   const formatWeight = (weight: string | number | null) => {
     if (weight === null || weight === undefined) return "-";
     const num = typeof weight === 'string' ? parseFloat(weight) : weight;
@@ -88,18 +94,22 @@ export default function PRs() {
         </div>
 
         {/* Top Session Volume Section */}
-        {topWorkouts && topWorkouts.length > 0 && (
+        {filteredTopWorkouts.length > 0 && (
           <Card className="glass-card" data-testid="card-top-workouts">
             <CardHeader className="pb-2">
               <div className="flex items-center gap-2">
                 <Crown className="h-5 w-5 text-yellow-500" />
                 <CardTitle className="text-lg">Top Session Volume</CardTitle>
               </div>
-              <CardDescription>Your highest total volume single workouts</CardDescription>
+              <CardDescription>
+                {filterByYear 
+                  ? `Your highest volume workouts in ${trackedYear}` 
+                  : "Your highest total volume single workouts"}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {topWorkouts.slice(0, 5).map((workout, index) => (
+                {filteredTopWorkouts.slice(0, 5).map((workout, index) => (
                   <div 
                     key={workout.id} 
                     className="flex items-center justify-between p-3 rounded-md bg-muted/50"
