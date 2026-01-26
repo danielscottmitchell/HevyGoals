@@ -13,6 +13,7 @@ interface RecentPrsProps {
     value: number;
     delta?: number;
   }>;
+  year?: number;
 }
 
 export function RecentPrs({ prs }: RecentPrsProps) {
