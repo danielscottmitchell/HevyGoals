@@ -13,6 +13,51 @@ interface HeatmapProps {
   year?: number;
 }
 
+function HeatmapGrid({ days, dataMap, getColor }: { 
+  days: Date[], 
+  dataMap: Map<string, { volumeLb: number; prCount: number }>,
+  getColor: (volume: number) => string 
+}) {
+  return (
+    <div 
+      className="grid gap-[2px] sm:gap-[3px]"
+      style={{ 
+        gridTemplateRows: 'repeat(7, minmax(0, 1fr))',
+        gridAutoFlow: 'column',
+        gridAutoColumns: 'minmax(0, 1fr)'
+      }}
+    >
+      {days.map((day) => {
+        const dateStr = format(day, "yyyy-MM-dd");
+        const dayData = dataMap.get(dateStr);
+        const volume = dayData?.volumeLb || 0;
+        const prCount = dayData?.prCount || 0;
+
+        return (
+          <TooltipProvider key={dateStr}>
+            <Tooltip delayDuration={50}>
+              <TooltipTrigger asChild>
+                <div 
+                  className={`
+                    aspect-square rounded-sm transition-all duration-200 
+                    ${getColor(volume)}
+                    ${prCount > 0 ? "ring-1 ring-accent" : ""}
+                  `}
+                />
+              </TooltipTrigger>
+              <TooltipContent className="text-xs">
+                <div className="font-bold">{format(day, "MMM d, yyyy")}</div>
+                <div>{volume > 0 ? `${(volume).toLocaleString()} lbs` : "No activity"}</div>
+                {prCount > 0 && <div className="text-accent mt-1">★ {prCount} PRs</div>}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      })}
+    </div>
+  );
+}
+
 export function YearHeatmap({ data, year = new Date().getFullYear() }: HeatmapProps) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -27,6 +72,10 @@ export function YearHeatmap({ data, year = new Date().getFullYear() }: HeatmapPr
   const endDate = endOfYear(new Date(year, 0, 1));
   const allDays = eachDayOfInterval({ start: startDate, end: endDate });
 
+  const midpoint = new Date(year, 6, 1);
+  const firstHalf = allDays.filter(d => d < midpoint);
+  const secondHalf = allDays.filter(d => d >= midpoint);
+
   const dataMap = new Map(data.map(d => [d.date, d]));
 
   const getColor = (volume: number) => {
@@ -38,8 +87,6 @@ export function YearHeatmap({ data, year = new Date().getFullYear() }: HeatmapPr
     return "bg-primary";
   };
 
-  const rows = isMobile ? 14 : 7;
-
   return (
     <Card className="glass-card">
       <CardHeader>
@@ -47,44 +94,21 @@ export function YearHeatmap({ data, year = new Date().getFullYear() }: HeatmapPr
         <CardDescription>{year} Activity Log</CardDescription>
       </CardHeader>
       <CardContent className="pb-4">
-        <div className="w-full overflow-x-auto">
-          <div 
-            className="grid gap-[2px] sm:gap-[3px]"
-            style={{ 
-              gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
-              gridAutoFlow: 'column',
-              gridAutoColumns: 'minmax(0, 1fr)',
-              minHeight: isMobile ? '280px' : 'auto'
-            }}
-          >
-            {allDays.map((day) => {
-              const dateStr = format(day, "yyyy-MM-dd");
-              const dayData = dataMap.get(dateStr);
-              const volume = dayData?.volumeLb || 0;
-              const prCount = dayData?.prCount || 0;
-
-              return (
-                <TooltipProvider key={dateStr}>
-                  <Tooltip delayDuration={50}>
-                    <TooltipTrigger asChild>
-                      <div 
-                        className={`
-                          aspect-square rounded-sm transition-all duration-200 
-                          ${getColor(volume)}
-                          ${prCount > 0 ? "ring-1 ring-accent" : ""}
-                        `}
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent className="text-xs">
-                      <div className="font-bold">{format(day, "MMM d, yyyy")}</div>
-                      <div>{volume > 0 ? `${(volume).toLocaleString()} lbs` : "No activity"}</div>
-                      {prCount > 0 && <div className="text-accent mt-1">★ {prCount} PRs</div>}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              );
-            })}
-          </div>
+        <div className="w-full">
+          {isMobile ? (
+            <div className="space-y-4">
+              <div>
+                <div className="text-xs text-muted-foreground mb-2">Jan - Jun</div>
+                <HeatmapGrid days={firstHalf} dataMap={dataMap} getColor={getColor} />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-2">Jul - Dec</div>
+                <HeatmapGrid days={secondHalf} dataMap={dataMap} getColor={getColor} />
+              </div>
+            </div>
+          ) : (
+            <HeatmapGrid days={allDays} dataMap={dataMap} getColor={getColor} />
+          )}
           
           <div className="flex items-center gap-2 mt-4 text-xs text-muted-foreground justify-end">
             <span>Less</span>
