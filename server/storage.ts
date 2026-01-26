@@ -510,40 +510,26 @@ export class DatabaseStorage implements IStorage {
         await db.insert(prEvents).values(prs);
     }
     
-    // Count exercise PRs per day and update daily_aggregates
-    const allExercisePrs = await db
+    // Count ALL PRs (from prEvents table) per day and update daily_aggregates
+    // This includes exercise PRs and daily volume PRs
+    const allPrEvents = await db
       .select()
-      .from(exercisePrs)
-      .where(eq(exercisePrs.userId, userId));
+      .from(prEvents)
+      .where(and(
+        eq(prEvents.userId, userId),
+        gte(prEvents.date, startOfYear.toISOString().split('T')[0]),
+        lte(prEvents.date, endOfYear.toISOString().split('T')[0])
+      ));
     
     // Build a map of date -> PR count
     const prCountMap = new Map<string, number>();
-    const yearStr = year.toString();
     
-    for (const pr of allExercisePrs) {
-      // Count each PR type date if it's in the target year
-      const dates = [
-        pr.maxWeightDate,
-        pr.maxSetVolumeDate,
-        pr.maxSessionVolumeDate
-      ].filter(d => d && d.startsWith(yearStr));
-      
-      for (const date of dates) {
-        if (date) {
-          prCountMap.set(date, (prCountMap.get(date) || 0) + 1);
-        }
-      }
-    }
-    
-    // Also add heaviest day PRs from pr_events
-    for (const pr of prs) {
-      if (pr.date.startsWith(yearStr)) {
-        prCountMap.set(pr.date, (prCountMap.get(pr.date) || 0) + 1);
-      }
+    for (const pr of allPrEvents) {
+      prCountMap.set(pr.date, (prCountMap.get(pr.date) || 0) + 1);
     }
     
     // Update daily_aggregates with the PR counts
-    for (const [date, count] of prCountMap) {
+    for (const [date, count] of Array.from(prCountMap)) {
       await db.update(dailyAggregates)
         .set({ prsCount: count })
         .where(and(

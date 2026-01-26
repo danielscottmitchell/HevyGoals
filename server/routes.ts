@@ -206,7 +206,11 @@ export async function registerRoutes(
         // Save/update workouts
         await storage.upsertWorkouts(userId, updatedWorkouts, getBodyweight);
 
-        // Recalculate aggregates for affected years (from updates and deletions)
+        // Calculate exercise PRs first (populates prEvents table)
+        const allStoredWorkouts = await storage.getAllWorkoutsRawJson(userId);
+        await storage.calculateExercisePrs(userId, allStoredWorkouts, getBodyweight);
+
+        // Then recalculate aggregates for affected years (counts PRs from prEvents)
         const affectedYears = new Set<number>();
         for (const w of updatedWorkouts) {
             affectedYears.add(new Date(w.start_time).getFullYear());
@@ -214,13 +218,9 @@ export async function registerRoutes(
         for (const year of deletionAffectedYears) {
             affectedYears.add(year);
         }
-        for (const year of affectedYears) {
+        for (const year of Array.from(affectedYears)) {
             await storage.recalculateAggregatesAndPrs(userId, year);
         }
-        
-        // Calculate exercise PRs from stored workout data (not refetching from API)
-        const allStoredWorkouts = await storage.getAllWorkoutsRawJson(userId);
-        await storage.calculateExercisePrs(userId, allStoredWorkouts, getBodyweight);
         
         // Update last sync
         await storage.updateHevyConnection(userId, { 
