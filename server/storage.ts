@@ -634,7 +634,7 @@ export class DatabaseStorage implements IStorage {
             actualVolume: parseFloat(agg.volumeLb),
             targetVolume: targetPerDay,
             cumulativeActual: cumulative,
-            cumulativeTarget: targetForDay, // Show target at each point for accurate visual
+            cumulativeTarget: null as any, // null for straight line (connectNulls draws between start/end)
             targetForDay: targetForDay,
             aheadBehind: cumulative - targetForDay // Positive = ahead, negative = behind
         });

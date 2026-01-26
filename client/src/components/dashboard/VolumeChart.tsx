@@ -18,16 +18,12 @@ export function VolumeChart({ data }: VolumeChartProps) {
   if (!data || data.length === 0) return null;
 
   return (
-    <Card className="glass-card col-span-1 lg:col-span-2 min-h-[400px]">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Volume Trajectory</CardTitle>
-            <CardDescription>Cumulative progress vs. Linear Target</CardDescription>
-          </div>
-        </div>
+    <Card className="glass-card col-span-1 lg:col-span-2">
+      <CardHeader className="pb-2">
+        <CardTitle>Volume Trajectory</CardTitle>
+        <CardDescription>Cumulative progress vs. Linear Target</CardDescription>
       </CardHeader>
-      <CardContent className="h-[350px]">
+      <CardContent className="h-[320px] pt-0">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <defs>
@@ -110,6 +106,7 @@ export function VolumeChart({ data }: VolumeChartProps) {
               strokeDasharray="5 5"
               fill="transparent"
               strokeWidth={2}
+              connectNulls={true}
             />
             
             <Area 
