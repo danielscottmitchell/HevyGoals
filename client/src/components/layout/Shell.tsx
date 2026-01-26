@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
-import { Dumbbell, LayoutDashboard, Settings, LogOut, User, Trophy } from "lucide-react";
+import { Dumbbell, LayoutDashboard, Settings, LogOut, User, Trophy, Sun, Moon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useTheme } from "@/components/ThemeProvider";
 
 interface ShellProps {
   children: React.ReactNode;
@@ -19,6 +20,7 @@ interface ShellProps {
 export function Shell({ children }: ShellProps) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
+  const { theme, toggleTheme } = useTheme();
 
   if (!user) return <>{children}</>;
 
@@ -74,7 +76,19 @@ export function Shell({ children }: ShellProps) {
             </nav>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              data-testid="button-theme-toggle"
+            >
+              {theme === "dark" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
