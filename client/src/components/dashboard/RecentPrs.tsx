@@ -64,7 +64,7 @@ export function RecentPrs({ prs }: RecentPrsProps) {
                 <div className="font-mono font-bold text-accent">
                   {pr.value.toLocaleString()} {pr.type.includes("weight") ? "lbs" : "lbs"}
                 </div>
-                {pr.delta && pr.delta > 0 && (
+                {pr.delta !== undefined && pr.delta > 0 && (
                   <div className="text-xs text-emerald-500 flex items-center justify-end gap-1 mt-0.5">
                     <TrendingUp className="w-3 h-3" />
                     +{pr.delta.toLocaleString()}
