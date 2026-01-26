@@ -24,11 +24,20 @@ export function ShareButton({ targetRef, filename = "hevygoals", className }: Sh
 
       const element = targetRef.current;
       const originalStyle = element.style.cssText;
-      element.style.margin = "16px";
+      
+      // Capture original dimensions before any manipulation
+      const rect = element.getBoundingClientRect();
+      const originalWidth = rect.width;
+      
+      // Lock the element's width to prevent mobile shrinking
+      element.style.width = `${originalWidth}px`;
+      element.style.minWidth = `${originalWidth}px`;
+      element.style.margin = "0";
       
       const wrapper = document.createElement("div");
       wrapper.style.display = "inline-block";
       wrapper.style.padding = "16px";
+      wrapper.style.width = `${originalWidth + 32}px`; // Include padding
       wrapper.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--background').trim() 
         ? `hsl(${getComputedStyle(document.documentElement).getPropertyValue('--background').trim()})`
         : "#ffffff";
