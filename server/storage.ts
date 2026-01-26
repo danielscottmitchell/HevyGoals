@@ -17,7 +17,7 @@ import {
   type InsertWeightLog,
   type ExercisePr,
 } from "@shared/schema";
-import { eq, and, desc, asc, sum, count, gte, lte, sql } from "drizzle-orm";
+import { eq, and, desc, asc, sum, count, gte, lte, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Hevy Connection
@@ -200,7 +200,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async calculateExercisePrs(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>): Promise<void> {
-    // Track PRs per exercise
+    // Track PRs per exercise and PR events
     const prMap = new Map<string, {
       exerciseName: string;
       exerciseType: string;
@@ -212,8 +212,25 @@ export class DatabaseStorage implements IStorage {
       maxSessionVolumeLb: number;
       maxSessionVolumeDate: string;
     }>();
+    
+    const prEventsList: {
+      userId: string;
+      date: string;
+      workoutId: string;
+      exerciseTemplateId: string;
+      exerciseName: string;
+      type: string;
+      value: string;
+      previousBest: string;
+      delta: string;
+    }[] = [];
 
-    for (const workout of workoutsData) {
+    // Sort workouts chronologically to track PR progression
+    const sortedWorkouts = [...workoutsData].sort((a, b) => 
+      new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+    );
+
+    for (const workout of sortedWorkouts) {
       const workoutDate = new Date(workout.start_time);
       const dateStr = workoutDate.toISOString().split('T')[0];
       const bodyweightLb = await getBodyweight(workoutDate);
@@ -224,45 +241,91 @@ export class DatabaseStorage implements IStorage {
         const exerciseType = ex.exercise_type || 'weight_reps';
         
         let sessionVolume = 0;
+        let sessionMaxWeight = 0;
+        let sessionMaxWeightReps = 0;
+        let sessionMaxSetVolume = 0;
         
+        // First pass: calculate session metrics
         for (const set of ex.sets) {
           const { weightLb, volumeLb } = calculateSetMetrics(set, exerciseType, bodyweightLb);
           sessionVolume += volumeLb;
           
-          const current = prMap.get(exerciseId) || {
-            exerciseName,
-            exerciseType,
-            maxWeightLb: 0,
-            maxWeightReps: 0,
-            maxWeightDate: dateStr,
-            maxSetVolumeLb: 0,
-            maxSetVolumeDate: dateStr,
-            maxSessionVolumeLb: 0,
-            maxSessionVolumeDate: dateStr,
-          };
-
-          // Update max weight
-          if (weightLb > current.maxWeightLb) {
-            current.maxWeightLb = weightLb;
-            current.maxWeightReps = set.reps || 0;
-            current.maxWeightDate = dateStr;
+          if (weightLb > sessionMaxWeight) {
+            sessionMaxWeight = weightLb;
+            sessionMaxWeightReps = set.reps || 0;
           }
-
-          // Update max set volume
-          if (volumeLb > current.maxSetVolumeLb) {
-            current.maxSetVolumeLb = volumeLb;
-            current.maxSetVolumeDate = dateStr;
+          if (volumeLb > sessionMaxSetVolume) {
+            sessionMaxSetVolume = volumeLb;
           }
-
-          prMap.set(exerciseId, current);
         }
 
-        // Update max session volume
-        const current = prMap.get(exerciseId)!;
-        if (sessionVolume > current.maxSessionVolumeLb) {
+        const current = prMap.get(exerciseId) || {
+          exerciseName,
+          exerciseType,
+          maxWeightLb: 0,
+          maxWeightReps: 0,
+          maxWeightDate: dateStr,
+          maxSetVolumeLb: 0,
+          maxSetVolumeDate: dateStr,
+          maxSessionVolumeLb: 0,
+          maxSessionVolumeDate: dateStr,
+        };
+
+        // Check for new max weight PR
+        if (sessionMaxWeight > current.maxWeightLb && sessionMaxWeight > 0) {
+          const previousBest = current.maxWeightLb;
+          prEventsList.push({
+            userId,
+            date: dateStr,
+            workoutId: workout.id,
+            exerciseTemplateId: exerciseId,
+            exerciseName,
+            type: 'exercise_max_weight',
+            value: sessionMaxWeight.toString(),
+            previousBest: previousBest.toString(),
+            delta: (sessionMaxWeight - previousBest).toString(),
+          });
+          current.maxWeightLb = sessionMaxWeight;
+          current.maxWeightReps = sessionMaxWeightReps;
+          current.maxWeightDate = dateStr;
+        }
+
+        // Check for new max set volume PR
+        if (sessionMaxSetVolume > current.maxSetVolumeLb && sessionMaxSetVolume > 0) {
+          const previousBest = current.maxSetVolumeLb;
+          prEventsList.push({
+            userId,
+            date: dateStr,
+            workoutId: workout.id,
+            exerciseTemplateId: exerciseId,
+            exerciseName,
+            type: 'exercise_max_set_volume',
+            value: sessionMaxSetVolume.toString(),
+            previousBest: previousBest.toString(),
+            delta: (sessionMaxSetVolume - previousBest).toString(),
+          });
+          current.maxSetVolumeLb = sessionMaxSetVolume;
+          current.maxSetVolumeDate = dateStr;
+        }
+
+        // Check for new max session volume PR
+        if (sessionVolume > current.maxSessionVolumeLb && sessionVolume > 0) {
+          const previousBest = current.maxSessionVolumeLb;
+          prEventsList.push({
+            userId,
+            date: dateStr,
+            workoutId: workout.id,
+            exerciseTemplateId: exerciseId,
+            exerciseName,
+            type: 'exercise_max_session_volume',
+            value: sessionVolume.toString(),
+            previousBest: previousBest.toString(),
+            delta: (sessionVolume - previousBest).toString(),
+          });
           current.maxSessionVolumeLb = sessionVolume;
           current.maxSessionVolumeDate = dateStr;
         }
+
         prMap.set(exerciseId, current);
       }
     }
@@ -286,6 +349,18 @@ export class DatabaseStorage implements IStorage {
 
     if (rows.length > 0) {
       await db.insert(exercisePrs).values(rows);
+    }
+
+    // Insert exercise PR events (delete existing first)
+    await db.delete(prEvents).where(
+      and(
+        eq(prEvents.userId, userId),
+        inArray(prEvents.type, ['exercise_max_weight', 'exercise_max_set_volume', 'exercise_max_session_volume'])
+      )
+    );
+    
+    if (prEventsList.length > 0) {
+      await db.insert(prEvents).values(prEventsList);
     }
   }
 
