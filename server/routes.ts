@@ -43,6 +43,36 @@ async function fetchWorkoutById(apiKey: string, workoutId: string): Promise<any>
     return response.json();
 }
 
+async function fetchExerciseTemplates(apiKey: string, page: number = 1): Promise<any> {
+    const response = await fetch(`https://api.hevyapp.com/v1/exercise_templates?page=${page}&pageSize=100`, {
+        headers: { 'api-key': apiKey }
+    });
+    
+    if (!response.ok) {
+        throw new Error(`Hevy API Error: ${response.statusText}`);
+    }
+    
+    return response.json();
+}
+
+async function fetchAllExerciseTemplates(apiKey: string): Promise<any[]> {
+    const templates: any[] = [];
+    let page = 1;
+    let hasMore = true;
+    
+    while (hasMore) {
+        const data = await fetchExerciseTemplates(apiKey, page);
+        templates.push(...(data.exercise_templates || []));
+        
+        // Check if there are more pages
+        const pageCount = data.page_count || 1;
+        hasMore = page < pageCount;
+        page++;
+    }
+    
+    return templates;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -131,6 +161,16 @@ export async function registerRoutes(
         // Create bodyweight lookup function
         const getBodyweight = async (date: Date) => storage.getWeightForDate(userId, date);
 
+        // Fetch and store exercise templates (always do this to ensure we have exercise types)
+        console.log('Fetching exercise templates from Hevy...');
+        const templates = await fetchAllExerciseTemplates(connection.apiKey);
+        console.log(`Fetched ${templates.length} exercise templates`);
+        await storage.upsertExerciseTemplates(userId, templates);
+        
+        // Get exercise type map for volume calculations
+        const exerciseTypeMap = await storage.getExerciseTypeMap(userId);
+        console.log(`Built exercise type map with ${exerciseTypeMap.size} entries`);
+
         if (isFullSync) {
             // Full sync: fetch all workouts
             let page = 1;
@@ -203,12 +243,12 @@ export async function registerRoutes(
             }
         }
 
-        // Save/update workouts
-        await storage.upsertWorkouts(userId, updatedWorkouts, getBodyweight);
+        // Save/update workouts with exercise type map for bodyweight calculations
+        await storage.upsertWorkouts(userId, updatedWorkouts, getBodyweight, exerciseTypeMap);
 
         // Calculate exercise PRs first (populates prEvents table)
         const allStoredWorkouts = await storage.getAllWorkoutsRawJson(userId);
-        await storage.calculateExercisePrs(userId, allStoredWorkouts, getBodyweight);
+        await storage.calculateExercisePrs(userId, allStoredWorkouts, getBodyweight, exerciseTypeMap);
 
         // Then recalculate aggregates for affected years (counts PRs from prEvents)
         const affectedYears = new Set<number>();

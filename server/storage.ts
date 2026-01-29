@@ -6,6 +6,7 @@ import {
   prEvents,
   weightLog,
   exercisePrs,
+  exerciseTemplates,
   type HevyConnection,
   type InsertHevyConnection,
   type Workout,
@@ -16,6 +17,7 @@ import {
   type WeightLogEntry,
   type InsertWeightLog,
   type ExercisePr,
+  type ExerciseTemplate,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { eq, and, desc, asc, sum, count, gte, lte, sql, inArray } from "drizzle-orm";
@@ -36,14 +38,14 @@ export interface IStorage {
   getWeightForDate(userId: string, date: Date): Promise<number>;
   
   // Workouts
-  upsertWorkouts(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>): Promise<void>;
+  upsertWorkouts(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>, exerciseTypeMap?: Map<string, string>): Promise<void>;
   deleteWorkouts(userId: string, workoutIds: string[]): Promise<number[]>; // Returns affected years
   getWorkouts(userId: string, year: number): Promise<Workout[]>;
   getAllWorkoutsRawJson(userId: string): Promise<any[]>;
   
   // Exercise PRs
   getExercisePrs(userId: string): Promise<ExercisePr[]>;
-  calculateExercisePrs(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>): Promise<void>;
+  calculateExercisePrs(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>, exerciseTypeMap?: Map<string, string>): Promise<void>;
   
   // Top Workouts
   getTopWorkouts(userId: string, limit?: number): Promise<{ id: string; title: string | null; date: string; volumeLb: number }[]>;
@@ -56,6 +58,10 @@ export interface IStorage {
 
   // PR Calculation helper
   recalculateAggregatesAndPrs(userId: string, year: number): Promise<void>;
+  
+  // Exercise Templates
+  upsertExerciseTemplates(userId: string, templatesData: any[]): Promise<void>;
+  getExerciseTypeMap(userId: string): Promise<Map<string, string>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -156,7 +162,7 @@ export class DatabaseStorage implements IStorage {
     return connection?.bodyweightLb ? parseFloat(connection.bodyweightLb) : 180;
   }
 
-  async upsertWorkouts(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>): Promise<void> {
+  async upsertWorkouts(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>, exerciseTypeMap?: Map<string, string>): Promise<void> {
     if (workoutsData.length === 0) return;
     
     // Transform Hevy workout to our schema
@@ -169,7 +175,7 @@ export class DatabaseStorage implements IStorage {
         title: w.title,
         startTime: workoutDate,
         endTime: w.end_time ? new Date(w.end_time) : null,
-        volumeLb: calculateVolumeLb(w, bodyweightLb).toString(),
+        volumeLb: calculateVolumeLb(w, bodyweightLb, exerciseTypeMap).toString(),
         rawJson: w,
       };
     }));
@@ -249,7 +255,7 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async calculateExercisePrs(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>): Promise<void> {
+  async calculateExercisePrs(userId: string, workoutsData: any[], getBodyweight: (date: Date) => Promise<number>, exerciseTypeMap?: Map<string, string>): Promise<void> {
     // Track PRs per exercise and PR events
     const prMap = new Map<string, {
       exerciseName: string;
@@ -288,7 +294,10 @@ export class DatabaseStorage implements IStorage {
       for (const ex of workout.exercises) {
         const exerciseId = ex.exercise_template_id;
         const exerciseName = ex.title;
-        const exerciseType = ex.exercise_type || 'weight_reps';
+        // Look up exercise type from map, fall back to raw data or default
+        const exerciseType = (exerciseTypeMap && exerciseId ? exerciseTypeMap.get(exerciseId) : null) 
+          || ex.exercise_type 
+          || 'weight_reps';
         
         let sessionVolume = 0;
         let sessionMaxWeight = 0;
@@ -692,6 +701,49 @@ export class DatabaseStorage implements IStorage {
 
     return limit > 0 ? result.slice(0, limit) : result;
   }
+
+  // Exercise Templates
+  async upsertExerciseTemplates(userId: string, templatesData: any[]): Promise<void> {
+    if (templatesData.length === 0) return;
+    
+    const rows = templatesData.map(t => ({
+      id: t.id,
+      userId,
+      title: t.title,
+      exerciseType: t.exercise_type || 'weight_reps',
+      primaryMuscleGroup: t.primary_muscle_group || null,
+      equipmentCategory: t.equipment_category || null,
+    }));
+
+    // Batch insert/update
+    for (const row of rows) {
+      await db.insert(exerciseTemplates)
+        .values(row)
+        .onConflictDoUpdate({
+          target: exerciseTemplates.id,
+          set: {
+            title: row.title,
+            exerciseType: row.exerciseType,
+            primaryMuscleGroup: row.primaryMuscleGroup,
+            equipmentCategory: row.equipmentCategory,
+            updatedAt: new Date(),
+          }
+        });
+    }
+  }
+
+  async getExerciseTypeMap(userId: string): Promise<Map<string, string>> {
+    const templates = await db
+      .select({ id: exerciseTemplates.id, exerciseType: exerciseTemplates.exerciseType })
+      .from(exerciseTemplates)
+      .where(eq(exerciseTemplates.userId, userId));
+    
+    const map = new Map<string, string>();
+    for (const t of templates) {
+      map.set(t.id, t.exerciseType);
+    }
+    return map;
+  }
 }
 
 export const storage = new DatabaseStorage();
@@ -735,10 +787,14 @@ function calculateSetMetrics(set: any, exerciseType: string, bodyweightLb: numbe
     };
 }
 
-function calculateVolumeLb(workout: any, bodyweightLb: number = 180): number {
+function calculateVolumeLb(workout: any, bodyweightLb: number = 180, exerciseTypeMap?: Map<string, string>): number {
     let vol = 0;
     for (const ex of workout.exercises) {
-        const exerciseType = ex.exercise_type || 'weight_reps';
+        // Try to get exercise type from map using template ID, fall back to raw data or default
+        const templateId = ex.exercise_template_id;
+        const exerciseType = (exerciseTypeMap && templateId ? exerciseTypeMap.get(templateId) : null) 
+            || ex.exercise_type 
+            || 'weight_reps';
         for (const set of ex.sets) {
             const { volumeLb } = calculateSetMetrics(set, exerciseType, bodyweightLb);
             vol += volumeLb;

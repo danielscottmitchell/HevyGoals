@@ -67,6 +67,17 @@ export const weightLog = pgTable("weight_log", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Exercise Templates - cached from Hevy to get exercise_type
+export const exerciseTemplates = pgTable("exercise_templates", {
+  id: text("id").primaryKey(), // Hevy Exercise Template ID
+  userId: text("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  exerciseType: text("exercise_type").notNull(), // weight_reps, bodyweight, bodyweight_weighted, bodyweight_assisted, duration, etc.
+  primaryMuscleGroup: text("primary_muscle_group"),
+  equipmentCategory: text("equipment_category"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Exercise PRs - tracks best performances per exercise
 export const exercisePrs = pgTable("exercise_prs", {
   id: serial("id").primaryKey(),
@@ -127,6 +138,13 @@ export const exercisePrsRelations = relations(exercisePrs, ({ one }) => ({
   }),
 }));
 
+export const exerciseTemplatesRelations = relations(exerciseTemplates, ({ one }) => ({
+  user: one(users, {
+    fields: [exerciseTemplates.userId],
+    references: [users.id],
+  }),
+}));
+
 // === BASE SCHEMAS ===
 export const insertHevyConnectionSchema = createInsertSchema(hevyConnections).omit({ 
   id: true, 
@@ -139,6 +157,7 @@ export const insertDailyAggregateSchema = createInsertSchema(dailyAggregates).om
 export const insertPrEventSchema = createInsertSchema(prEvents).omit({ id: true, createdAt: true });
 export const insertWeightLogSchema = createInsertSchema(weightLog).omit({ id: true, userId: true, createdAt: true });
 export const insertExercisePrSchema = createInsertSchema(exercisePrs).omit({ id: true, updatedAt: true });
+export const insertExerciseTemplateSchema = createInsertSchema(exerciseTemplates).omit({ updatedAt: true });
 
 // === EXPLICIT API CONTRACT TYPES ===
 
@@ -203,3 +222,7 @@ export type InsertWeightLog = z.infer<typeof insertWeightLogSchema>;
 // Exercise PR Types
 export type ExercisePr = typeof exercisePrs.$inferSelect;
 export type InsertExercisePr = z.infer<typeof insertExercisePrSchema>;
+
+// Exercise Template Types
+export type ExerciseTemplate = typeof exerciseTemplates.$inferSelect;
+export type InsertExerciseTemplate = z.infer<typeof insertExerciseTemplateSchema>;
