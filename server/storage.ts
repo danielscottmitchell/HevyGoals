@@ -589,6 +589,18 @@ export class DatabaseStorage implements IStorage {
 
     const connection = await this.getHevyConnection(userId);
 
+    // Get the most recent workout's volume
+    const latestWorkout = await db
+        .select({ volumeLb: workouts.volumeLb })
+        .from(workouts)
+        .where(eq(workouts.userId, userId))
+        .orderBy(desc(workouts.startTime))
+        .limit(1);
+    
+    const lastWorkoutVolume = latestWorkout.length > 0 && latestWorkout[0].volumeLb 
+        ? parseFloat(latestWorkout[0].volumeLb) 
+        : 0;
+
     return {
         totalLiftedLb,
         goalLb,
@@ -599,7 +611,8 @@ export class DatabaseStorage implements IStorage {
         projectedYearEndLb,
         sessionsCount: stats.totalSessions ? parseInt(stats.totalSessions) : 0,
         daysLiftedCount: stats.daysLifted,
-        lastSyncAt: connection?.lastSyncAt ? connection.lastSyncAt.toISOString() : null
+        lastSyncAt: connection?.lastSyncAt ? connection.lastSyncAt.toISOString() : null,
+        lastWorkoutVolume
     };
   }
 

@@ -181,6 +181,7 @@ export interface DashboardStats {
   sessionsCount: number;
   daysLiftedCount: number;
   lastSyncAt: string | null;
+  lastWorkoutVolume: number;
 }
 
 export interface ChartDataPoint {
