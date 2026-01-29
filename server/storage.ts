@@ -62,6 +62,9 @@ export interface IStorage {
   // Exercise Templates
   upsertExerciseTemplates(userId: string, templatesData: any[]): Promise<void>;
   getExerciseTypeMap(userId: string): Promise<Map<string, string>>;
+  
+  // Recalculate all workout volumes
+  recalculateAllWorkoutVolumes(userId: string, getBodyweight: (date: Date) => Promise<number>, exerciseTypeMap: Map<string, string>): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -710,9 +713,10 @@ export class DatabaseStorage implements IStorage {
       id: t.id,
       userId,
       title: t.title,
-      exerciseType: t.exercise_type || 'weight_reps',
+      // Hevy API uses 'type' not 'exercise_type'
+      exerciseType: t.type || t.exercise_type || 'weight_reps',
       primaryMuscleGroup: t.primary_muscle_group || null,
-      equipmentCategory: t.equipment_category || null,
+      equipmentCategory: t.equipment_category || t.equipment || null,
     }));
 
     // Batch insert/update
@@ -744,6 +748,30 @@ export class DatabaseStorage implements IStorage {
     }
     return map;
   }
+
+  async recalculateAllWorkoutVolumes(userId: string, getBodyweight: (date: Date) => Promise<number>, exerciseTypeMap: Map<string, string>): Promise<void> {
+    // Fetch all workouts with raw JSON
+    const allWorkouts = await db
+      .select({ id: workouts.id, rawJson: workouts.rawJson, startTime: workouts.startTime })
+      .from(workouts)
+      .where(eq(workouts.userId, userId));
+    
+    console.log(`Recalculating volumes for ${allWorkouts.length} workouts...`);
+    
+    for (const w of allWorkouts) {
+      if (!w.rawJson) continue;
+      
+      const workoutDate = w.startTime || new Date();
+      const bodyweightLb = await getBodyweight(workoutDate);
+      const newVolume = calculateVolumeLb(w.rawJson as any, bodyweightLb, exerciseTypeMap);
+      
+      await db.update(workouts)
+        .set({ volumeLb: newVolume.toString() })
+        .where(eq(workouts.id, w.id));
+    }
+    
+    console.log(`Recalculated volumes for ${allWorkouts.length} workouts`);
+  }
 }
 
 export const storage = new DatabaseStorage();
@@ -760,15 +788,19 @@ function calculateSetMetrics(set: any, exerciseType: string, bodyweightLb: numbe
     
     switch (exerciseType) {
         case 'bodyweight':
+        case 'reps_only':
             // Pure bodyweight (pushups, pullups, etc.) - use bodyweight as the weight
+            // Hevy uses 'reps_only' for bodyweight exercises
             effectiveWeight = bodyweightLb;
             break;
         case 'bodyweight_weighted':
+        case 'weighted_bodyweight':
             // Weighted bodyweight (weighted pullups, dips with added weight)
             // Total = bodyweight + added weight
             effectiveWeight = bodyweightLb + weightLbFromKg;
             break;
         case 'bodyweight_assisted':
+        case 'assisted_bodyweight':
             // Assisted bodyweight (assisted dips, assisted pullups)
             // Total = bodyweight - assistance weight
             effectiveWeight = Math.max(0, bodyweightLb - weightLbFromKg);

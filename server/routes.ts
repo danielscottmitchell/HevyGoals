@@ -246,6 +246,10 @@ export async function registerRoutes(
         // Save/update workouts with exercise type map for bodyweight calculations
         await storage.upsertWorkouts(userId, updatedWorkouts, getBodyweight, exerciseTypeMap);
 
+        // Recalculate ALL workout volumes with correct exercise types
+        // This ensures existing workouts get their bodyweight exercises calculated correctly
+        await storage.recalculateAllWorkoutVolumes(userId, getBodyweight, exerciseTypeMap);
+
         // Calculate exercise PRs first (populates prEvents table)
         const allStoredWorkouts = await storage.getAllWorkoutsRawJson(userId);
         await storage.calculateExercisePrs(userId, allStoredWorkouts, getBodyweight, exerciseTypeMap);
