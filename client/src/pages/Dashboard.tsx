@@ -49,6 +49,11 @@ export default function Dashboard() {
 
   const { stats, chartData, heatmapData, recentPrs } = data;
 
+  const year = new Date().getFullYear();
+  const startOfYear = new Date(year, 0, 1).getTime();
+  const daysElapsedInYear = Math.max(1, Math.floor((Date.now() - startOfYear) / 86400000) + 1);
+  const consistencyPct = Math.min(100, Math.round((stats.daysLiftedCount / daysElapsedInYear) * 100));
+
   const handleRefresh = () => {
     refreshMutation.mutate(undefined, {
       onSuccess: () => refetch()
@@ -135,7 +140,7 @@ export default function Dashboard() {
            <StatCard 
             title="Active Days" 
             value={stats.daysLiftedCount}
-            subtext={`${((stats.daysLiftedCount / 365) * 100).toFixed(0)}% consistency`}
+            subtext={`${consistencyPct}% consistency`}
             icon={CalendarDays}
             delay={400}
           />
