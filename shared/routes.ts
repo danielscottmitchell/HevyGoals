@@ -165,6 +165,7 @@ export const api = {
             value: number;
             delta?: number;
           }>;
+          actualYearPrCount?: number;
         }>(),
       },
     },

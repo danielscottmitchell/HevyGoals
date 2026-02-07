@@ -16,15 +16,19 @@ interface RecentPrsProps {
     delta?: number;
   }>;
   year?: number;
+  actualYearPrCount?: number;
 }
 
-export function RecentPrs({ prs, year }: RecentPrsProps) {
+export function RecentPrs({ prs, year, actualYearPrCount }: RecentPrsProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const currentYear = year || new Date().getFullYear();
   const prsThisYear = prs?.filter(pr => {
     const prYear = new Date(pr.date).getFullYear();
     return prYear === currentYear;
   }) || [];
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/ed999e8c-b939-48b6-b6f8-8bc063858ef3', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'RecentPrs.tsx', message: 'PR counter inputs', data: { prsLength: prs?.length ?? 0, prsThisYearLength: prsThisYear.length, currentYear, actualYearPrCount: actualYearPrCount ?? null, sampleDates: prs?.slice(0, 3).map(p => p.date) ?? [] }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H2' }) }).catch(() => {});
+  // #endregion
 
   if (!prs || prs.length === 0) {
     return (
@@ -56,7 +60,9 @@ export function RecentPrs({ prs, year }: RecentPrsProps) {
           </CardTitle>
           <div className="flex items-center gap-2">
             <div className="text-right">
-              <div className="text-2xl font-bold text-primary">{prsThisYear.length}</div>
+              <div className="text-2xl font-bold text-primary" data-testid="pr-count-year">
+                {actualYearPrCount != null ? actualYearPrCount : prsThisYear.length}
+              </div>
               <div className="text-xs text-muted-foreground">PRs in {currentYear}</div>
             </div>
             <ShareButton targetRef={cardRef} filename="hevy-records" />

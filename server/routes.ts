@@ -355,13 +355,19 @@ export async function registerRoutes(
     const stats = await storage.getDashboardStats(userId, year, goalLb);
     const chartData = await storage.getChartData(userId, year, goalLb);
     const heatmapData = await storage.getHeatmapData(userId, year);
-    const recentPrs = await storage.getRecentPrs(userId);
+    const recentPrsLimit = 10;
+    const recentPrs = await storage.getRecentPrs(userId, recentPrsLimit);
+    const actualYearPrCount = await storage.getPrCountForYear(userId, year);
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/ed999e8c-b939-48b6-b6f8-8bc063858ef3', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'server/routes.ts:dashboard', message: 'PR count comparison', data: { actualYearPrCount, recentPrsReturned: recentPrs.length, recentPrsLimit, year }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H1' }) }).catch(() => {});
+    // #endregion
 
     res.json({
         stats,
         chartData,
         heatmapData,
-        recentPrs
+        recentPrs,
+        actualYearPrCount
     });
   });
 

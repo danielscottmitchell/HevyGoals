@@ -55,6 +55,7 @@ export interface IStorage {
   getChartData(userId: string, year: number, goalLb: number): Promise<ChartDataPoint[]>;
   getHeatmapData(userId: string, year: number): Promise<HeatmapDay[]>;
   getRecentPrs(userId: string, limit?: number): Promise<PrFeedItem[]>;
+  getPrCountForYear(userId: string, year: number): Promise<number>;
 
   // PR Calculation helper
   recalculateAggregatesAndPrs(userId: string, year: number): Promise<void>;
@@ -695,6 +696,20 @@ export class DatabaseStorage implements IStorage {
         count: agg.workoutsCount,
         prCount: agg.prsCount
     }));
+  }
+
+  async getPrCountForYear(userId: string, year: number): Promise<number> {
+    const start = `${year}-01-01`;
+    const end = `${year}-12-31`;
+    const r = await db
+      .select({ count: count() })
+      .from(prEvents)
+      .where(and(
+        eq(prEvents.userId, userId),
+        gte(prEvents.date, start),
+        lte(prEvents.date, end)
+      ));
+    return r[0]?.count ?? 0;
   }
 
   async getRecentPrs(userId: string, limit: number = 10): Promise<PrFeedItem[]> {

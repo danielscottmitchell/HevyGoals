@@ -168,7 +168,7 @@ export default function Dashboard() {
             <VolumeChart data={chartData} />
           </div>
           <div className="col-span-1 min-h-[300px] sm:min-h-[350px]">
-            <RecentPrs prs={recentPrs} year={new Date().getFullYear()} />
+            <RecentPrs prs={recentPrs} year={new Date().getFullYear()} actualYearPrCount={data.actualYearPrCount} />
           </div>
         </div>
 
