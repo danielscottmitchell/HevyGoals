@@ -31,9 +31,10 @@ export function VolumeChart({ data }: VolumeChartProps) {
   const year = parseInt(data[0]?.date?.split('-')[0] || '2026');
   const today = new Date();
   const currentDay = Math.floor((today.getTime() - new Date(year, 0, 1).getTime()) / (1000 * 60 * 60 * 24));
-  
+  const daysElapsed = currentDay + 1; // 1-based to match server Pace Status (getDayOfYear)
+
   const goalPerDay = data[1]?.targetVolume || 0;
-  const todayTarget = goalPerDay * currentDay;
+  const todayTarget = goalPerDay * daysElapsed;
   const lastActual = data[data.length - 1]?.cumulativeActual || 0;
 
   const chartData: Array<{

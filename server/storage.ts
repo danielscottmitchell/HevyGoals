@@ -570,10 +570,10 @@ export class DatabaseStorage implements IStorage {
     const totalLiftedLb = stats.totalVolume ? parseFloat(stats.totalVolume) : 0;
     const percentageComplete = (totalLiftedLb / goalLb) * 100;
     
-    // Date math
+    // Date math (use getDayOfYear so Pace Status matches Volume Trajectory chart)
     const now = new Date();
     const isCurrentYear = now.getFullYear() === year;
-    const dayOfYear = Math.floor((now.getTime() - new Date(year, 0, 0).getTime()) / 1000 / 60 / 60 / 24);
+    const dayOfYear = getDayOfYear(now);
     const totalDays = 365; // Simplify leap year
     
     const daysRemaining = isCurrentYear ? totalDays - dayOfYear : 0;
