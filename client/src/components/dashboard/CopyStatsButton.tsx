@@ -35,9 +35,8 @@ export function CopyStatsButton({ stats, year }: CopyStatsButtonProps) {
     const goal = stats.goalLb || 0;
 
     return [
-      `Session Volume: ${sessionVolume.toLocaleString()} lbs`,
+      `Session #${sessions} Volume: ${sessionVolume.toLocaleString()} lbs`,
       `YTD Volume: ${ytdVolume.toLocaleString()} lbs`,
-      `Sessions This Year: ${sessions}`,
       `Progress: ${progress.toFixed(1)}% of ${goal.toLocaleString()} lbs goal for ${year}`
     ].join('\n');
   };
